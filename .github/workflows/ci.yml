@@ -28,7 +28,9 @@ jobs:
         pip install ruff pytest
 
     - name: Lint with ruff
-      run: ruff check backend/app
+      working-directory: backend
+      run: ruff check app
 
     - name: Run tests
-      run: python -m pytest backend/app/tests
+      working-directory: backend
+      run: python -m pytest app/tests
