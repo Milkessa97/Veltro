@@ -160,3 +160,84 @@ def test_get_current_user_no_credentials():
     with pytest.raises(HTTPException) as exc_info:
         get_current_user(access_token=None, credentials=None, db=mock_db)
     assert exc_info.value.status_code == 401
+
+
+def test_login_endpoint():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    
+    client = TestClient(app)
+    # Follow redirects = False so we can inspect the redirect headers and cookies
+    response = client.get("/auth/login", follow_redirects=False)
+    
+    assert response.status_code == 307  # Redirect status code
+    location = response.headers.get("location")
+    assert "https://github.com/login/oauth/authorize" in location
+    assert "state=" in location
+    
+    # Check that the oauth_state cookie is set
+    assert "oauth_state" in response.cookies
+    cookie_value = response.cookies.get("oauth_state")
+    assert cookie_value is not None
+    # Verify the state parameter in the redirect matches the cookie value
+    assert f"state={cookie_value}" in location
+
+
+def test_callback_endpoint_state_mismatch():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    
+    client = TestClient(app)
+    # Case 1: Missing state parameter entirely
+    response = client.get("/auth/callback?code=mock_code")
+    assert response.status_code == 400
+    assert "state mismatch or expired" in response.json()["detail"].lower()
+    
+    # Case 2: Mismatched state value
+    client.cookies.set("oauth_state", "expected_state")
+    response = client.get("/auth/callback?code=mock_code&state=different_state")
+    assert response.status_code == 400
+    assert "state mismatch or expired" in response.json()["detail"].lower()
+
+
+@patch("app.routes.auth.exchange_github_code_for_token")
+@patch("app.routes.auth.fetch_github_user_info")
+def test_callback_endpoint_success(mock_fetch_info, mock_exchange):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.models.users import User
+    from app.db.session import get_db
+    from unittest.mock import MagicMock
+    
+    mock_exchange.return_value = "mock_github_token"
+    mock_fetch_info.return_value = {
+        "id": 12345,
+        "login": "testuser",
+        "name": "Test User",
+        "avatar_url": "https://avatar.url"
+    }
+    
+    mock_db = MagicMock()
+    # Mock user exists
+    mock_user = User(id="550e8400-e29b-41d4-a716-446655440000", github_login="testuser", github_id=12345)
+    mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+    
+    # Override database dependency
+    app.dependency_overrides[get_db] = lambda: mock_db
+    
+    try:
+        client = TestClient(app)
+        state_val = "secure_state_token"
+        client.cookies.set("oauth_state", state_val)
+        
+        response = client.get(f"/auth/callback?code=mock_code&state={state_val}", follow_redirects=False)
+        
+        assert response.status_code == 307
+        assert response.headers.get("location") == f"{settings.FRONTEND_URL}/dashboard"
+        
+        # Check that the access_token and refresh_token cookies are set
+        assert "access_token" in response.cookies
+        assert "refresh_token" in response.cookies
+    finally:
+        # Clean up dependency override
+        app.dependency_overrides.pop(get_db, None)

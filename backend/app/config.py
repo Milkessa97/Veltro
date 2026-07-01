@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
     GITHUB_WEBHOOK_SECRET: str
+    GITHUB_APP_ID: str
+    GITHUB_PRIVATE_KEY: str
     CLAUDE_API_KEY: str
     SECRET_KEY: str
     ENCRYPTION_KEY: str

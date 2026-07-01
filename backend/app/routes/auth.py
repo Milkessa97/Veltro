@@ -22,23 +22,52 @@ router = APIRouter()
 @router.get("/login")
 def login():
     """
-    Redirects the user to the GitHub OAuth authorize page.
+    Redirects the user to the GitHub OAuth authorize page with a secure state parameter.
     """
-    scope = "repo,read:user"
+    import secrets
+    state = secrets.token_urlsafe(32)
+    scope = "read:user"
     github_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={settings.GITHUB_CLIENT_ID}"
         f"&scope={scope}"
+        f"&state={state}"
     )
-    return RedirectResponse(url=github_url)
+    response = RedirectResponse(url=github_url)
+    
+    secure_cookie = settings.ENVIRONMENT != "development"
+    # Store state in a short-lived secure cookie
+    response.set_cookie(
+        key="oauth_state",
+        value=state,
+        httponly=True,
+        secure=secure_cookie,
+        samesite="lax",
+        max_age=300,  # 5 minutes expiration
+        path="/auth"
+    )
+    return response
 
 @router.get("/callback")
-def callback(code: str, db: Session = Depends(get_db)):
+def callback(
+    code: str,
+    state: Optional[str] = None,
+    installation_id: Optional[int] = None,
+    oauth_state: Optional[str] = Cookie(None),
+    db: Session = Depends(get_db)
+):
     """
-    Handles the GitHub OAuth redirect callback. Exchanges authorization code,
-    creates/updates the user profile, and redirects to the frontend dashboard with a JWT.
-    Also sets a long-lived refresh token in an HTTP-only cookie.
+    Handles the GitHub OAuth redirect callback. Verification of state prevents CSRF.
+    Exchanges authorization code, creates/updates the user profile, and redirects
+    to the frontend dashboard.
     """
+    # 0. Verify OAuth state to prevent CSRF
+    if not state or not oauth_state or state != oauth_state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OAuth state mismatch or expired. Potential CSRF attack."
+        )
+    
     if not code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -74,6 +103,8 @@ def callback(code: str, db: Session = Depends(get_db)):
         user.avatar_url = avatar_url
         user.github_token = encrypted_token
         user.last_login_at = func.now()
+        if installation_id is not None:
+            user.github_installation_id = installation_id
     else:
         # Create new user
         user = User(
@@ -81,7 +112,8 @@ def callback(code: str, db: Session = Depends(get_db)):
             github_login=github_login,
             display_name=display_name,
             avatar_url=avatar_url,
-            github_token=encrypted_token
+            github_token=encrypted_token,
+            github_installation_id=installation_id
         )
         db.add(user)
         db.flush()  # Flushes to DB to populate user.id UUID
@@ -102,6 +134,15 @@ def callback(code: str, db: Session = Depends(get_db)):
     response = RedirectResponse(url=redirect_url)
     
     secure_cookie = settings.ENVIRONMENT != "development"
+    
+    # Delete the single-use oauth_state cookie
+    response.delete_cookie(
+        key="oauth_state",
+        path="/auth",
+        secure=secure_cookie,
+        httponly=True,
+        samesite="lax"
+    )
     
     # Set the access token as a secure, HTTP-only, SameSite=Lax cookie
     response.set_cookie(

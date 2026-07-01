@@ -15,6 +15,7 @@ class User(Base):
     display_name = Column(String(255), nullable=True)
     avatar_url = Column(String(500), nullable=True)
     github_token = Column(String(500), nullable=False)
+    github_installation_id = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     last_login_at = Column(DateTime, nullable=False, server_default=func.now())
