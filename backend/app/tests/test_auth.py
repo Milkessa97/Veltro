@@ -108,3 +108,55 @@ def test_fernet_wrong_key():
     
     with pytest.raises(Exception):  # should raise InvalidToken
         different_fernet.decrypt(encrypted.encode())
+
+
+def test_get_current_user_cookie():
+    from unittest.mock import MagicMock
+    from fastapi import HTTPException
+    from app.services.auth import get_current_user
+    from app.models.users import User
+
+    user_id = "550e8400-e29b-41d4-a716-446655440000"
+    token = create_jwt_token(user_id, token_type="access")
+
+    mock_db = MagicMock()
+    mock_user = User(id=user_id, github_login="test_user")
+    mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+
+    # Test cookie auth
+    user = get_current_user(access_token=token, credentials=None, db=mock_db)
+    assert user == mock_user
+    mock_db.query.return_value.filter.assert_called_once()
+
+
+def test_get_current_user_header():
+    from unittest.mock import MagicMock
+    from fastapi.security import HTTPAuthorizationCredentials
+    from app.services.auth import get_current_user
+    from app.models.users import User
+
+    user_id = "550e8400-e29b-41d4-a716-446655440000"
+    token = create_jwt_token(user_id, token_type="access")
+
+    mock_db = MagicMock()
+    mock_user = User(id=user_id, github_login="test_user")
+    mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    # Test header auth fallback
+    user = get_current_user(access_token=None, credentials=credentials, db=mock_db)
+    assert user == mock_user
+
+
+def test_get_current_user_no_credentials():
+    from fastapi import HTTPException
+    from app.services.auth import get_current_user
+    import pytest
+
+    mock_db = MagicMock = None
+
+    # Test raising 401 when no token is provided
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(access_token=None, credentials=None, db=mock_db)
+    assert exc_info.value.status_code == 401

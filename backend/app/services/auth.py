@@ -3,7 +3,7 @@ import httpx
 from datetime import datetime, timedelta, UTC
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Cookie
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -13,8 +13,8 @@ from app.models.users import User
 
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 
-# HTTPBearer security scheme
-security = HTTPBearer()
+# HTTPBearer security scheme (auto_error=False to allow fallback to Cookie)
+security = HTTPBearer(auto_error=False)
 
 def create_jwt_token(user_id: str, token_type: str = "access") -> str:
     """
@@ -97,14 +97,27 @@ def fetch_github_user_info(github_token: str) -> dict:
         return response.json()
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    access_token: Optional[str] = Cookie(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
     """
-    FastAPI dependency that extracts the JWT token from the Authorization header,
-    verifies it, and returns the current database User object.
+    FastAPI dependency that extracts the JWT token from the access_token cookie,
+    falling back to the Authorization header, verifies it, and returns the User object.
     """
-    token = credentials.credentials
+    token = None
+    if access_token:
+        token = access_token
+    elif credentials:
+        token = credentials.credentials
+        
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
     payload = verify_jwt_token(token)
     if not payload:
         raise HTTPException(

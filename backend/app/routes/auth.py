@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
@@ -97,12 +97,24 @@ def callback(code: str, db: Session = Depends(get_db)):
     access_token_jwt = create_jwt_token(str(user.id), token_type="access")
     refresh_token_jwt = create_jwt_token(str(user.id), token_type="refresh")
     
-    # 6. Redirect to Frontend Dashboard with access token in query params
-    redirect_url = f"{settings.FRONTEND_URL}/dashboard?token={access_token_jwt}"
+    # 6. Redirect to Frontend Dashboard without token in query params
+    redirect_url = f"{settings.FRONTEND_URL}/dashboard"
     response = RedirectResponse(url=redirect_url)
     
-    # Set the refresh token as a secure, HTTP-only, SameSite=Strict cookie
     secure_cookie = settings.ENVIRONMENT != "development"
+    
+    # Set the access token as a secure, HTTP-only, SameSite=Lax cookie
+    response.set_cookie(
+        key="access_token",
+        value=access_token_jwt,
+        httponly=True,
+        secure=secure_cookie,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
+    )
+    
+    # Set the refresh token as a secure, HTTP-only, SameSite=Strict cookie
     response.set_cookie(
         key="refresh_token",
         value=refresh_token_jwt,
@@ -116,9 +128,10 @@ def callback(code: str, db: Session = Depends(get_db)):
     return response
 
 @router.post("/refresh")
-def refresh(refresh_token: Optional[str] = Cookie(None)):
+def refresh(response: Response, refresh_token: Optional[str] = Cookie(None)):
     """
-    Exchanges a valid refresh token cookie for a new short-lived access token.
+    Exchanges a valid refresh token cookie for a new short-lived access token,
+    setting the new access token in an HTTP-only cookie.
     """
     if not refresh_token:
         raise HTTPException(
@@ -135,14 +148,25 @@ def refresh(refresh_token: Optional[str] = Cookie(None)):
     
     user_id = payload.get("sub")
     new_access_token = create_jwt_token(user_id, token_type="access")
+    
+    # Set the new access token as a secure, HTTP-only, SameSite=Lax cookie
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        secure=settings.ENVIRONMENT != "development",
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
+    )
+    
     return {"access_token": new_access_token}
 
 @router.post("/logout")
-def logout():
+def logout(response: Response):
     """
-    Logs out the user by deleting the refresh token cookie.
+    Logs out the user by deleting the refresh token and access token cookies.
     """
-    response = JSONResponse(content={"message": "Successfully logged out"})
     response.delete_cookie(
         key="refresh_token",
         path="/auth",
@@ -150,7 +174,14 @@ def logout():
         httponly=True,
         samesite="strict"
     )
-    return response
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        secure=settings.ENVIRONMENT != "development",
+        httponly=True,
+        samesite="lax"
+    )
+    return {"message": "Successfully logged out"}
 
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)):
