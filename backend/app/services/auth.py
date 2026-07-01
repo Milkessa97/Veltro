@@ -1,3 +1,4 @@
+import uuid
 import jwt
 import httpx
 from datetime import datetime, timedelta, UTC
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db.session import get_db
 from app.models.users import User
+from app.models.token_blocklist import TokenBlocklist
 
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 
@@ -19,6 +21,7 @@ security = HTTPBearer(auto_error=False)
 def create_jwt_token(user_id: str, token_type: str = "access") -> str:
     """
     Creates a signed JWT access or refresh token for a given user ID.
+    Each token gets a unique jti (JWT ID) so it can be individually revoked.
     """
     now = datetime.now(UTC)
     if token_type == "access":
@@ -30,6 +33,7 @@ def create_jwt_token(user_id: str, token_type: str = "access") -> str:
 
     payload = {
         "sub": str(user_id),
+        "jti": str(uuid.uuid4()),  # Unique token ID — used for blocklist-based revocation
         "type": token_type,
         "exp": expiry,
         "iat": now
@@ -50,6 +54,26 @@ def verify_jwt_token(token: str, expected_type: str = "access") -> Optional[dict
         return payload
     except jwt.PyJWTError:
         return None
+
+
+def purge_expired_blocklist(db: Session) -> int:
+    """
+    Deletes blocklist entries whose tokens have certainly expired by now.
+    Safe to use the refresh token lifetime as the outer bound — any token
+    blocked longer ago than that could never be presented as valid anyway.
+
+    Called opportunistically on every logout so the table stays lean
+    without requiring a separate cron job or scheduled task.
+
+    Returns the number of rows deleted.
+    """
+    cutoff = datetime.now(UTC) - timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    deleted = (
+        db.query(TokenBlocklist)
+        .filter(TokenBlocklist.blocked_at < cutoff)
+        .delete(synchronize_session=False)
+    )
+    return deleted
 
 
 def exchange_github_code_for_token(code: str) -> str:
@@ -103,7 +127,8 @@ def get_current_user(
 ) -> User:
     """
     FastAPI dependency that extracts the JWT token from the access_token cookie,
-    falling back to the Authorization header, verifies it, and returns the User object.
+    falling back to the Authorization header, verifies it, checks the blocklist,
+    and returns the User object.
     """
     token = None
     if access_token:
@@ -123,6 +148,15 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Reject tokens that have been explicitly revoked (e.g., after logout)
+    jti = payload.get("jti")
+    if jti and db.query(TokenBlocklist).filter(TokenBlocklist.jti == jti).first():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

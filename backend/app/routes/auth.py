@@ -8,13 +8,15 @@ from app.config import settings
 from app.db.session import get_db
 from app.models.users import User
 from app.models.user_preferences import UserPreferences
+from app.models.token_blocklist import TokenBlocklist
 from app.services.encryption import encrypt_token
 from app.services.auth import (
     exchange_github_code_for_token,
     fetch_github_user_info,
     create_jwt_token,
     verify_jwt_token,
-    get_current_user
+    get_current_user,
+    purge_expired_blocklist
 )
 
 router = APIRouter()
@@ -204,21 +206,48 @@ def refresh(response: Response, refresh_token: Optional[str] = Cookie(None)):
     return {"access_token": new_access_token}
 
 @router.post("/logout")
-def logout(response: Response):
+def logout(
+    response: Response,
+    access_token: Optional[str] = Cookie(None),
+    refresh_token: Optional[str] = Cookie(None),
+    db: Session = Depends(get_db)
+):
     """
-    Logs out the user by deleting the refresh token and access token cookies.
+    Logs out the user by:
+    1. Adding the JTI of both tokens to the blocklist so they are immediately invalid.
+    2. Deleting the HTTP-only cookies from the browser.
     """
+    secure_cookie = settings.ENVIRONMENT != "development"
+
+    # Block the access token so it cannot be reused even if someone kept a copy
+    if access_token:
+        payload = verify_jwt_token(access_token, expected_type="access")
+        if payload and payload.get("jti"):
+            db.add(TokenBlocklist(jti=payload["jti"]))
+
+    # Block the refresh token so it cannot be used to mint new access tokens
+    if refresh_token:
+        payload = verify_jwt_token(refresh_token, expected_type="refresh")
+        if payload and payload.get("jti"):
+            db.add(TokenBlocklist(jti=payload["jti"]))
+
+    # Purge blocklist rows that are older than the max token lifetime —
+    # they could never be replayed as valid tokens anyway.
+    purge_expired_blocklist(db)
+
+    db.commit()
+
     response.delete_cookie(
         key="refresh_token",
         path="/auth",
-        secure=settings.ENVIRONMENT != "development",
+        secure=secure_cookie,
         httponly=True,
         samesite="strict"
     )
     response.delete_cookie(
         key="access_token",
         path="/",
-        secure=settings.ENVIRONMENT != "development",
+        secure=secure_cookie,
         httponly=True,
         samesite="lax"
     )

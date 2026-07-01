@@ -115,18 +115,28 @@ def test_get_current_user_cookie():
     from fastapi import HTTPException
     from app.services.auth import get_current_user
     from app.models.users import User
+    from app.models.token_blocklist import TokenBlocklist
 
     user_id = "550e8400-e29b-41d4-a716-446655440000"
     token = create_jwt_token(user_id, token_type="access")
 
-    mock_db = MagicMock()
     mock_user = User(id=user_id, github_login="test_user")
-    mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+
+    # Return None for blocklist (token is not blocked), mock_user for User lookup
+    def query_side_effect(model):
+        mock_q = MagicMock()
+        if model is TokenBlocklist:
+            mock_q.filter.return_value.first.return_value = None
+        else:
+            mock_q.filter.return_value.first.return_value = mock_user
+        return mock_q
+
+    mock_db = MagicMock()
+    mock_db.query.side_effect = query_side_effect
 
     # Test cookie auth
     user = get_current_user(access_token=token, credentials=None, db=mock_db)
     assert user == mock_user
-    mock_db.query.return_value.filter.assert_called_once()
 
 
 def test_get_current_user_header():
@@ -134,13 +144,24 @@ def test_get_current_user_header():
     from fastapi.security import HTTPAuthorizationCredentials
     from app.services.auth import get_current_user
     from app.models.users import User
+    from app.models.token_blocklist import TokenBlocklist
 
     user_id = "550e8400-e29b-41d4-a716-446655440000"
     token = create_jwt_token(user_id, token_type="access")
 
-    mock_db = MagicMock()
     mock_user = User(id=user_id, github_login="test_user")
-    mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+
+    # Return None for blocklist (token is not blocked), mock_user for User lookup
+    def query_side_effect(model):
+        mock_q = MagicMock()
+        if model is TokenBlocklist:
+            mock_q.filter.return_value.first.return_value = None
+        else:
+            mock_q.filter.return_value.first.return_value = mock_user
+        return mock_q
+
+    mock_db = MagicMock()
+    mock_db.query.side_effect = query_side_effect
 
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
