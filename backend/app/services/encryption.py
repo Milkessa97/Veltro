@@ -1,5 +1,7 @@
 from cryptography.fernet import Fernet
-from app.config import settings
+from app.config import get_settings
+
+settings = get_settings()
 
 # Initialize Fernet key directly from config.
 # Since ENCRYPTION_KEY is required in settings, we initialize directly.
@@ -14,6 +16,7 @@ def encrypt_token(token: str) -> str:
     if not token:
         return ""
     return fernet.encrypt(token.encode()).decode()
+
 
 def decrypt_token(encrypted_token: str) -> str:
     """
