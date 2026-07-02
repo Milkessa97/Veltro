@@ -13,8 +13,9 @@ from alembic import context
 from app.config import settings
 from app.db.session import Base
 # Import models here to register them with Base.metadata
-from app.models.users import User
-from app.models.user_preferences import UserPreferences
+from .users import User # noqa: F401
+from .user_preferences import UserPreferences # noqa: F401
+from .token_blocklist import TokenBlocklist # noqa: F401
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

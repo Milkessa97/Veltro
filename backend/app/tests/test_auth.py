@@ -1,12 +1,25 @@
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
+
+import jwt as pyjwt
 import pytest
-from unittest.mock import patch
+from cryptography.fernet import Fernet, InvalidToken
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.testclient import TestClient
+
 from app.config import settings
-from app.services.encryption import encrypt_token, decrypt_token
-from app.services.auth import create_jwt_token, verify_jwt_token
+from app.db.session import get_db
+from app.main import app
+from app.models.token_blocklist import TokenBlocklist
+from app.models.users import User
+from app.services.auth import (
+    create_jwt_token,
+    get_current_user,
+    verify_jwt_token,
+)
+from app.services.encryption import decrypt_token, encrypt_token
 
-from cryptography.fernet import Fernet
-
-from datetime import datetime, timezone, timedelta
 import time
 
 def test_fernet_encryption_decryption():
@@ -71,9 +84,7 @@ def test_jwt_tampered_token():
     
     assert verify_jwt_token(tampered, expected_type="access") is None
 
-def test_jwt_wrong_secret():
-    import jwt as pyjwt
-    
+def test_jwt_wrong_secret(): 
     # manually create a token signed with a fake secret
     fake_payload = {
         "sub": "550e8400-e29b-41d4-a716-446655440000",
@@ -85,9 +96,6 @@ def test_jwt_wrong_secret():
     assert verify_jwt_token(fake_token, expected_type="access") is None
 
 def test_jwt_missing_sub():
-    import jwt as pyjwt
-    from app.config import settings
-    
     payload = {
         "type": "access",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=30)
@@ -106,17 +114,11 @@ def test_fernet_wrong_key():
     different_key = Fernet.generate_key()
     different_fernet = Fernet(different_key)
     
-    with pytest.raises(Exception):  # should raise InvalidToken
+    with pytest.raises(InvalidToken):  # should raise InvalidToken
         different_fernet.decrypt(encrypted.encode())
 
 
 def test_get_current_user_cookie():
-    from unittest.mock import MagicMock
-    from fastapi import HTTPException
-    from app.services.auth import get_current_user
-    from app.models.users import User
-    from app.models.token_blocklist import TokenBlocklist
-
     user_id = "550e8400-e29b-41d4-a716-446655440000"
     token = create_jwt_token(user_id, token_type="access")
 
@@ -140,12 +142,6 @@ def test_get_current_user_cookie():
 
 
 def test_get_current_user_header():
-    from unittest.mock import MagicMock
-    from fastapi.security import HTTPAuthorizationCredentials
-    from app.services.auth import get_current_user
-    from app.models.users import User
-    from app.models.token_blocklist import TokenBlocklist
-
     user_id = "550e8400-e29b-41d4-a716-446655440000"
     token = create_jwt_token(user_id, token_type="access")
 
@@ -171,11 +167,7 @@ def test_get_current_user_header():
 
 
 def test_get_current_user_no_credentials():
-    from fastapi import HTTPException
-    from app.services.auth import get_current_user
-    import pytest
-
-    mock_db = MagicMock = None
+    mock_db = None
 
     # Test raising 401 when no token is provided
     with pytest.raises(HTTPException) as exc_info:
@@ -184,9 +176,6 @@ def test_get_current_user_no_credentials():
 
 
 def test_login_endpoint():
-    from fastapi.testclient import TestClient
-    from app.main import app
-    
     client = TestClient(app)
     # Follow redirects = False so we can inspect the redirect headers and cookies
     response = client.get("/auth/login", follow_redirects=False)
@@ -205,9 +194,6 @@ def test_login_endpoint():
 
 
 def test_callback_endpoint_state_mismatch():
-    from fastapi.testclient import TestClient
-    from app.main import app
-    
     client = TestClient(app)
     # Case 1: Missing state parameter entirely
     response = client.get("/auth/callback?code=mock_code")
@@ -224,12 +210,6 @@ def test_callback_endpoint_state_mismatch():
 @patch("app.routes.auth.exchange_github_code_for_token")
 @patch("app.routes.auth.fetch_github_user_info")
 def test_callback_endpoint_success(mock_fetch_info, mock_exchange):
-    from fastapi.testclient import TestClient
-    from app.main import app
-    from app.models.users import User
-    from app.db.session import get_db
-    from unittest.mock import MagicMock
-    
     mock_exchange.return_value = "mock_github_token"
     mock_fetch_info.return_value = {
         "id": 12345,

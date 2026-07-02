@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, DateTime, Integer, Column, ForeignKey, Boolean, CheckConstraint
+from sqlalchemy import DateTime, Integer, Column, ForeignKey, Boolean, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
