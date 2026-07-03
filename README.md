@@ -1,6 +1,6 @@
-# devPulse
+# Veltro
 
-> **AI-driven engineering analytics for high-performing teams.** devPulse is a multi-tenant full-stack developer velocity platform. It securely orchestrates GitHub OAuth authentication, processes repository and organization PR workflows via asynchronous pipelines, and delivers AI-powered bottleneck analysis through an interactive dashboard.
+> **AI-driven engineering analytics for high-performing teams.** Veltro is a multi-tenant full-stack developer velocity platform. It securely orchestrates GitHub App authentication, processes repository and organization PR workflows via asynchronous pipelines, and delivers AI-powered bottleneck analysis through an interactive dashboard.
 
 ## 🚀 Tech Stack & Architecture
 
