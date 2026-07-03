@@ -200,7 +200,7 @@ def refresh(
         path="/"
     )
 
-    return {"access_token": new_access_token}
+    return {"access_token": "Token refreshed"}
 
 
 @router.post("/logout")
