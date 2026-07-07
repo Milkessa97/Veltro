@@ -19,7 +19,7 @@ from app.services.auth import (
     purge_expired_blocklist
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.get("/login")
@@ -169,6 +169,7 @@ def callback(
 def refresh(
     response: Response,
     refresh_token: Optional[str] = Cookie(None),
+    db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings)
 ):
     """
@@ -185,6 +186,19 @@ def refresh(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token"
+        )
+    
+    jti = payload.get("jti")
+    if not jti:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing jti claim"
+        )
+    
+    if db.query(TokenBlocklist).filter(TokenBlocklist.jti == jti).first():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked"
         )
 
     user_id = payload.get("sub")

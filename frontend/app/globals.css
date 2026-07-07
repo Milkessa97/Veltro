@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Themeable Colors - Restrained Darkness (Obsidian & Electric Indigo) */
+    --background: 240 33% 5%; /* #0a0a0f */
+    --foreground: 240 10% 96%; /* #f4f4f6 */
+
+    --muted: 240 17% 8%; /* #111118 */
+    --muted-foreground: 240 10% 96% / 0.65;
+    --muted-foreground-light: 240 10% 96% / 0.45;
+    --muted-foreground-dark: 240 10% 96% / 0.55;
+
+    --card: 240 17% 8% / 0.6; /* #111118 */
+    --card-foreground: 240 10% 96%;
+
+    --popover: 240 33% 5%; /* #0a0a0f */
+    --popover-foreground: 240 10% 96%;
+
+    /* Primary Accent Colors */
+    --primary: 239 84% 67%; /* #6366f1 (Electric Indigo) */
+    --primary-foreground: 240 33% 5%;
+    --primary-dark: 244 75% 56%; /* #4f46e5 */
+    --primary-light: 195 100% 70%; /* Cyan accent for hybrid gradient glows */
+
+    /* Secondary Accent Colors (for buttons, etc.) */
+    --secondary: 240 10% 96%;
+    --secondary-foreground: 240 33% 5%;
+
+    --accent: 240 10% 15%;
+    --accent-foreground: 240 10% 96%;
+
+    --border: 240 10% 96% / 0.08;
+    --border-light: 240 10% 96% / 0.04;
+    --border-dark: 240 10% 96% / 0.12;
+
+    --ring: 239 84% 67%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer utilities {
+  /* Faded grid backdrop used across app views */
+  .grid-backdrop {
+    background-image: linear-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+    background-size: 36px 36px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+  }
+
+  .glow-spot {
+    background: radial-gradient(circle at center, hsl(var(--primary) / 0.25), transparent 70%);
+  }
+
+  @keyframes draw-check {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .animate-draw-check {
+    stroke-dasharray: 26;
+    stroke-dashoffset: 26;
+    animation: draw-check 0.5s ease-out forwards;
+  }
+
+  @keyframes float-y {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  .animate-float {
+    animation: float-y 5s ease-in-out infinite;
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 0.3s ease-out forwards;
+  }
+}
+
+/* Hide scrollbar but keep scrolling functional */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, newer Edge */
+}
