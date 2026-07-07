@@ -10,12 +10,14 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from app.config import settings
+from app.config import get_settings
 from app.db.session import Base
 # Import models here to register them with Base.metadata
-from .users import User # noqa: F401
-from .user_preferences import UserPreferences # noqa: F401
-from .token_blocklist import TokenBlocklist # noqa: F401
+from app.models.users import User # noqa: F401
+from app.models.user_preferences import UserPreferences # noqa: F401
+from app.models.token_blocklist import TokenBlocklist # noqa: F401
+
+settings = get_settings()
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

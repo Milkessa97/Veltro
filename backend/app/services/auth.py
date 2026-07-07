@@ -138,11 +138,16 @@ def get_current_user(
         )
 
     jti = payload.get("jti")
-    if jti and db.query(TokenBlocklist).filter(TokenBlocklist.jti == jti).first():
+    if not jti:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has been revoked",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Token missing jti claim",
+        )
+
+    if db.query(TokenBlocklist).filter(TokenBlocklist.jti == jti).first():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked"
         )
 
     user_id = payload.get("sub")
