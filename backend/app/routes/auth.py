@@ -126,10 +126,15 @@ def callback(
     db.commit()
     db.refresh(user)
 
+    # Determine onboarding status to route the user correctly
+    preferences = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+    is_onboarded = preferences.is_onboarded if preferences else False
+
     access_token_jwt = create_jwt_token(str(user.id), token_type="access")
     refresh_token_jwt = create_jwt_token(str(user.id), token_type="refresh")
 
-    redirect_url = f"{settings.FRONTEND_URL}/dashboard"
+    destination = "dashboard" if is_onboarded else "onboarding"
+    redirect_url = f"{settings.FRONTEND_URL}/{destination}"
     response = RedirectResponse(url=redirect_url)
 
     secure_cookie = settings.ENVIRONMENT != "development"
@@ -214,7 +219,7 @@ def refresh(
         path="/"
     )
 
-    return {"access_token": "Token refreshed"}
+    return {"message": "Token refreshed"}
 
 
 @router.post("/logout")
@@ -263,10 +268,20 @@ def logout(
 
 
 @router.get("/me")
-def me(current_user: User = Depends(get_current_user)):
+def me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
-    Returns details of the currently authenticated user.
+    Returns details of the currently authenticated user, including their
+    onboarding status so the frontend can redirect to the preferences page
+    on first sign-up.
     """
+    preferences = db.query(UserPreferences).filter(
+        UserPreferences.user_id == current_user.id
+    ).first()
+    is_onboarded = preferences.is_onboarded if preferences else False
+
     return {
         "id": str(current_user.id),
         "github_id": current_user.github_id,
@@ -274,5 +289,6 @@ def me(current_user: User = Depends(get_current_user)):
         "display_name": current_user.display_name,
         "avatar_url": current_user.avatar_url,
         "created_at": current_user.created_at,
-        "last_login_at": current_user.last_login_at
+        "last_login_at": current_user.last_login_at,
+        "is_onboarded": is_onboarded
     }

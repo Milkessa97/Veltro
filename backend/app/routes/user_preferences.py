@@ -41,6 +41,7 @@ def update_preferences(
             default_repository_id=body.default_repository_id,
             default_date_range_days=body.default_date_range_days,
             digest_panel_expanded=body.digest_panel_expanded,
+            is_onboarded=body.is_onboarded,
         )
     except ValueError as e:
         raise HTTPException(

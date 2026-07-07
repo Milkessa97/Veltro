@@ -14,7 +14,9 @@ export default function middleware(req: NextRequest) {
   const { nextUrl } = req
   const hasAccessToken = !!req.cookies.get("access_token")?.value
 
-  const isProtected = nextUrl.pathname.startsWith("/dashboard")
+  const isProtected =
+    nextUrl.pathname.startsWith("/dashboard") ||
+    nextUrl.pathname.startsWith("/onboarding")
   const isLoginPage = nextUrl.pathname === "/login"
 
   if (hasAccessToken && isLoginPage) {

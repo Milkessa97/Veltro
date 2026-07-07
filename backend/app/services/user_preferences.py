@@ -30,6 +30,7 @@ def update_preferences(
     default_repository_id: Optional[UUID] = None,
     default_date_range_days: Optional[int] = None,
     digest_panel_expanded: Optional[bool] = None,
+    is_onboarded: Optional[bool] = None,
 ) -> UserPreferences:
     """
     Partially updates user preferences.
@@ -49,6 +50,9 @@ def update_preferences(
 
     if digest_panel_expanded is not None:
         prefs.digest_panel_expanded = digest_panel_expanded
+
+    if is_onboarded is not None:
+        prefs.is_onboarded = is_onboarded
 
     db.commit()
     db.refresh(prefs)

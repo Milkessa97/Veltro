@@ -48,6 +48,7 @@ def test_get_preferences_returns_defaults(client: TestClient, db: Session):
     assert data["default_date_range_days"] == 30
     assert data["digest_panel_expanded"] == True
     assert data["default_repository_id"] is None
+    assert data["is_onboarded"] == False  # new users start un-onboarded
 
 
 def test_get_preferences_requires_auth(client: TestClient):
@@ -225,3 +226,44 @@ def test_users_cannot_see_each_others_preferences(client: TestClient, db: Sessio
     # user_b should still see the default 30
     response = client.get("/preferences", headers=auth_headers(user_b))
     assert response.json()["default_date_range_days"] == 30
+
+
+def test_update_is_onboarded(client: TestClient, db: Session):
+    """Setting is_onboarded=True should persist and be returned."""
+    user = create_test_user(db)
+
+    response = client.put(
+        "/preferences",
+        json={"is_onboarded": True},
+        headers=auth_headers(user)
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_onboarded"] == True
+
+
+def test_partial_update_does_not_reset_is_onboarded(client: TestClient, db: Session):
+    """
+    A subsequent partial update that omits is_onboarded should not
+    flip it back to False.
+    """
+    user = create_test_user(db)
+
+    # mark onboarded
+    client.put(
+        "/preferences",
+        json={"is_onboarded": True},
+        headers=auth_headers(user)
+    )
+
+    # update a different field
+    response = client.put(
+        "/preferences",
+        json={"default_date_range_days": 7},
+        headers=auth_headers(user)
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["default_date_range_days"] == 7
+    assert data["is_onboarded"] == True  # must not be reset

@@ -20,6 +20,7 @@ class UserPreferences(Base):
     default_repository_id = Column(UUID(as_uuid = True),nullable = True)
     default_date_range_days = Column(Integer,nullable =False,server_default="30")
     digest_panel_expanded = Column(Boolean,nullable =False,server_default="true")
+    is_onboarded = Column(Boolean, nullable=False, server_default="false")
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
