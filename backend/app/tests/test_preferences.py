@@ -1,11 +1,8 @@
 # backend/app/tests/test_preferences.py
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from uuid import uuid4
 
-from app.main import app as fastapi_app
 from app.models.users import User
 from app.models.user_preferences import UserPreferences
 from app.services.auth import create_jwt_token
@@ -46,9 +43,9 @@ def test_get_preferences_returns_defaults(client: TestClient, db: Session):
     assert response.status_code == 200
     data = response.json()
     assert data["default_date_range_days"] == 30
-    assert data["digest_panel_expanded"] == True
+    assert data["digest_panel_expanded"]
     assert data["default_repository_id"] is None
-    assert data["is_onboarded"] == False  # new users start un-onboarded
+    assert not data["is_onboarded"]  # new users start un-onboarded
 
 
 def test_get_preferences_requires_auth(client: TestClient):
@@ -111,7 +108,7 @@ def test_update_digest_panel(client: TestClient,db: Session):
     )
 
     assert response.status_code == 200
-    assert response.json()["digest_panel_expanded"] == False
+    assert not response.json()["digest_panel_expanded"]
 
 
 def test_partial_update_leaves_other_fields_unchanged(client: TestClient, db: Session):
@@ -134,7 +131,7 @@ def test_partial_update_leaves_other_fields_unchanged(client: TestClient, db: Se
     assert response.status_code == 200
     data = response.json()
     assert data["default_date_range_days"] == 7
-    assert data["digest_panel_expanded"] == False  # unchanged
+    assert not data["digest_panel_expanded"]  # unchanged
 
 
 def test_update_invalid_date_range_returns_422(client: TestClient, db: Session):
@@ -239,7 +236,7 @@ def test_update_is_onboarded(client: TestClient, db: Session):
     )
 
     assert response.status_code == 200
-    assert response.json()["is_onboarded"] == True
+    assert response.json()["is_onboarded"]
 
 
 def test_partial_update_does_not_reset_is_onboarded(client: TestClient, db: Session):
@@ -266,4 +263,4 @@ def test_partial_update_does_not_reset_is_onboarded(client: TestClient, db: Sess
     assert response.status_code == 200
     data = response.json()
     assert data["default_date_range_days"] == 7
-    assert data["is_onboarded"] == True  # must not be reset
+    assert data["is_onboarded"]  # must not be reset

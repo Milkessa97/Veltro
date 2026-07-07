@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
 from app.main import app as fastapi_app
-from app.db.session import Base, get_db
+from app.db.session import get_db
 from app.config import get_settings
 
 settings = get_settings()
