@@ -10,10 +10,10 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/:path*`
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL}/:path*`
       }
     ]
   }
 }
 
-module.exports = nextConfig
+export default nextConfig
