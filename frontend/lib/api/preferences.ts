@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+// Relative path — browser calls same origin (/api/...) and Next.js rewrites
+// it to the FastAPI backend. This avoids cross-domain cookie issues on deployment.
+// Server actions (app/actions/) call NEXT_PUBLIC_API_URL directly since they
+// run server-side and are not subject to the same cross-origin restriction.
+const API_URL = "/api"
 
 export interface UserPreferences {
   default_repository_id: string | null

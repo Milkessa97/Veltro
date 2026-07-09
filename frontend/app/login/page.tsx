@@ -6,9 +6,12 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { GithubIcon } from "@/components/LandingPage/icons"
 
-// Constructed client-side — avoids importing auth.ts which is server-only
-// (auth.ts uses `cookies` from next/headers at module level)
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
+// Use a relative /api path so the login navigates through the Next.js rewrite
+// proxy. This keeps the entire OAuth flow on the frontend domain, ensuring
+// cookies set by the callback are scoped correctly.
+// Server actions (auth.ts) still use NEXT_PUBLIC_API_URL directly — server-side
+// requests are not subject to cross-origin cookie restrictions.
+const LOGIN_URL = "/api/auth/login"
 
 function LoginCard() {
   const searchParams = useSearchParams()
@@ -28,7 +31,7 @@ function LoginCard() {
 
   const handleLogin = () => {
     setLoading(true)
-    window.location.href = `${API_URL}/auth/login`
+    window.location.href = LOGIN_URL
   }
 
   return (
