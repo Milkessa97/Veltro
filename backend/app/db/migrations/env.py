@@ -16,6 +16,11 @@ from app.db.session import Base
 from app.models.users import User # noqa: F401
 from app.models.user_preferences import UserPreferences # noqa: F401
 from app.models.token_blocklist import TokenBlocklist # noqa: F401
+from app.models.repositories import Repositories # noqa: F401
+from app.models.contributors import Contributors # noqa: F401
+from app.models.pull_requests import PullRequests # noqa: F401
+from app.models.pull_request_reviewers import PullRequestReviewers # noqa: F401
+from app.models.pr_labels import PrLabels # noqa: F401
 
 settings = get_settings()
 # this is the Alembic Config object, which provides

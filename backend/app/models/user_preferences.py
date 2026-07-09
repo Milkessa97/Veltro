@@ -17,7 +17,7 @@ class UserPreferences(Base):
         index=True,
     )
 
-    default_repository_id = Column(UUID(as_uuid = True),nullable = True)
+    default_repository_id = Column(UUID(as_uuid = True),ForeignKey("repositories.id", ondelete="SET NULL", name="fk_user_preferences_default_repository_id"),nullable = True)
     default_date_range_days = Column(Integer,nullable =False,server_default="30")
     digest_panel_expanded = Column(Boolean,nullable =False,server_default="true")
     is_onboarded = Column(Boolean, nullable=False, server_default="false")
