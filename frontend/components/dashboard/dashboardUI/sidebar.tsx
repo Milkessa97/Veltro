@@ -24,7 +24,7 @@ import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { useRepo } from "@/components/dashboard/repo-context"
-import type { SyncStatus } from "@/lib/veltro-data"
+import type { Repository } from "@/lib/api/repositories"
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Overview" },
@@ -34,10 +34,9 @@ const navItems = [
   { href: "/dashboard/sync-history", icon: History, label: "Sync History" },
 ]
 
-function SyncIndicator({ status }: { status: SyncStatus }) {
-  if (status === "syncing") return <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin flex-shrink-0" />
-  if (status === "error") return <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-  if (status === "synced") return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+function SyncIndicator({ isSynced, isSyncing }: { isSynced: boolean; isSyncing: boolean }) {
+  if (isSyncing) return <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin flex-shrink-0" />
+  if (isSynced) return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
   return <Activity className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
 }
 
@@ -182,7 +181,7 @@ export default function Sidebar() {
                         )}
                         title={isCollapsed ? repo.name : undefined}
                       >
-                        {repo.visibility === "private" ? (
+                        {repo.is_private ? (
                           <Lock className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                         ) : (
                           <Globe className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
@@ -190,7 +189,7 @@ export default function Sidebar() {
                         {!isCollapsed && (
                           <>
                             <span className="truncate flex-1">{repo.name}</span>
-                            <SyncIndicator status={repo.syncStatus} />
+                            <SyncIndicator isSynced={repo.is_synced} isSyncing={activeRepo?.id === repo.id} />
                           </>
                         )}
                       </button>

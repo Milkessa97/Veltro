@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.routes.auth import router as auth_router
 from app.routes.user_preferences import router as preferences_router
+from app.routes.repositories import router as repositories_router
+from app.routes.webhooks import router as webhooks_router
 
 
 settings = get_settings()
@@ -20,6 +22,8 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(preferences_router)
+app.include_router(repositories_router)
+app.include_router(webhooks_router)
 
 @app.get("/")
 def root():

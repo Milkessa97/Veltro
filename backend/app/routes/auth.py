@@ -1,4 +1,5 @@
 from typing import Optional
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -19,6 +20,8 @@ from app.services.auth import (
     purge_expired_blocklist
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
@@ -34,8 +37,8 @@ def login(settings: Settings = Depends(get_settings)):
     github_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={settings.GITHUB_CLIENT_ID}"
-        f"&scope={scope}"
         f"&state={state}"
+        f"&scope={scope}"
     )
 
     response = RedirectResponse(url=github_url)
@@ -49,7 +52,7 @@ def login(settings: Settings = Depends(get_settings)):
         secure=secure_cookie,
         samesite="lax",
         max_age=300,
-        path="/api/auth"
+        path=f"{settings.COOKIE_PATH_PREFIX}/auth"
     )
 
     return response
@@ -57,91 +60,123 @@ def login(settings: Settings = Depends(get_settings)):
 
 @router.get("/callback")
 def callback(
-    code: str,
+    code: Optional[str] = None,
     state: Optional[str] = None,
     installation_id: Optional[int] = None,
     oauth_state: Optional[str] = Cookie(None),
+    access_token: Optional[str] = Cookie(None),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings)
 ):
     """
     Handles the GitHub OAuth redirect callback. Verification of state prevents CSRF.
     Exchanges authorization code, creates/updates the user profile, and redirects
-    to the frontend dashboard.
+    to the frontend dashboard or installation flow.
     """
-    if not state or not oauth_state or state != oauth_state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OAuth state mismatch or expired. Potential CSRF attack."
-        )
+    user = None
 
     if not code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Authorization code missing"
-        )
+        # If code is missing, we check if this is an installation redirect
+        # and if the user is already authenticated via cookies.
+        if installation_id and access_token:
+            payload = verify_jwt_token(access_token)
+            if payload:
+                user_id = payload.get("sub")
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    user.github_installation_id = installation_id
+                    db.commit()
 
-    access_token = exchange_github_code_for_token(code)
-    github_user = fetch_github_user_info(access_token)
-
-    github_id = github_user.get("id")
-    github_login = github_user.get("login")
-    display_name = github_user.get("name") or github_login
-    avatar_url = github_user.get("avatar_url")
-
-    if not github_id or not github_login:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve complete user details from GitHub"
-        )
-
-    encrypted_token = encrypt_token(access_token)
-
-    user = db.query(User).filter(User.github_id == github_id).first()
-
-    if user:
-        user.github_login = github_login
-        user.display_name = display_name
-        user.avatar_url = avatar_url
-        user.github_token = encrypted_token
-        user.last_login_at = func.now()
-
-        if installation_id is not None:
-            user.github_installation_id = installation_id
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Authorization code missing or session expired."
+            )
     else:
-        user = User(
-            github_id=github_id,
-            github_login=github_login,
-            display_name=display_name,
-            avatar_url=avatar_url,
-            github_token=encrypted_token,
-            github_installation_id=installation_id
-        )
-        db.add(user)
-        db.flush()
+        # Verification of state prevents CSRF.
+        # Bypassed if redirecting from GitHub App installation, as GitHub does not pass state in that flow.
+        if not installation_id:
+            if not state or not oauth_state or state != oauth_state:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="OAuth state mismatch or expired. Potential CSRF attack."
+                )
 
-        preferences = UserPreferences(user_id=user.id)
-        db.add(preferences)
+        access_token_github = exchange_github_code_for_token(code)
+        github_user = fetch_github_user_info(access_token_github)
 
-    db.commit()
-    db.refresh(user)
+        github_id = github_user.get("id")
+        github_login = github_user.get("login")
+        display_name = github_user.get("name") or github_login
+        avatar_url = github_user.get("avatar_url")
+
+        if not github_id or not github_login:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve complete user details from GitHub"
+            )
+
+        encrypted_token = encrypt_token(access_token_github)
+
+        user = db.query(User).filter(User.github_id == github_id).first()
+
+        if user:
+            user.github_login = github_login
+            user.display_name = display_name
+            user.avatar_url = avatar_url
+            user.github_token = encrypted_token
+            user.last_login_at = func.now()
+
+            if installation_id is not None:
+                user.github_installation_id = installation_id
+        else:
+            user = User(
+                github_id=github_id,
+                github_login=github_login,
+                display_name=display_name,
+                avatar_url=avatar_url,
+                github_token=encrypted_token,
+                github_installation_id=installation_id
+            )
+            db.add(user)
+            db.flush()
+
+            preferences = UserPreferences(user_id=user.id)
+            db.add(preferences)
+
+        db.commit()
+        db.refresh(user)
+
+    # Automatically sync repositories on login if the installation ID is present
+    if user.github_installation_id:
+        try:
+            from app.services.repositories import sync_repositories
+            sync_repositories(db, user)
+        except Exception as e:
+            logger.error(f"Failed to auto-sync repositories on login for user {user.id}: {str(e)}")
 
     # Determine onboarding status to route the user correctly
     preferences = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
     is_onboarded = preferences.is_onboarded if preferences else False
 
+    # Route the user depending on their installation status and onboarding status
+    if not user.github_installation_id:
+        # Redirect to the GitHub App installation page
+        redirect_url = f"https://github.com/apps/{settings.GITHUB_APP_SLUG}/installations/new"
+    else:
+        destination = "dashboard" if is_onboarded else "onboarding"
+        redirect_url = f"{settings.FRONTEND_URL}/{destination}"
+
     access_token_jwt = create_jwt_token(str(user.id), token_type="access")
     refresh_token_jwt = create_jwt_token(str(user.id), token_type="refresh")
 
-    destination = "dashboard" if is_onboarded else "onboarding"
-    redirect_url = f"{settings.FRONTEND_URL}/{destination}"
     response = RedirectResponse(url=redirect_url)
 
     secure_cookie = settings.ENVIRONMENT != "development"
 
     response.delete_cookie(
         key="oauth_state",
-        path="/api/auth",
+        path=f"{settings.COOKIE_PATH_PREFIX}/auth",
         secure=secure_cookie,
         httponly=True,
         samesite="lax"
@@ -164,7 +199,7 @@ def callback(
         secure=secure_cookie,
         samesite="strict",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        path="/api/auth"
+        path=f"{settings.COOKIE_PATH_PREFIX}/auth"
     )
 
     return response
@@ -250,7 +285,7 @@ def logout(
 
     response.delete_cookie(
         key="refresh_token",
-        path="/api/auth",
+        path=f"{settings.COOKIE_PATH_PREFIX}/auth",
         secure=secure_cookie,
         httponly=True,
         samesite="strict"

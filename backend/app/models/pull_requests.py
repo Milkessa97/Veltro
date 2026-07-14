@@ -1,7 +1,7 @@
 import uuid
-from sqlalchemy import DateTime, Integer, String, Column, ForeignKey, Boolean, UniqueConstraint, CheckConstraint, Index
+from sqlalchemy import DateTime, Integer, String, Column, ForeignKey, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.db.session import Base
 
@@ -31,7 +31,19 @@ class PullRequests(Base):
     closed_at = Column(DateTime, nullable=True)
     additions = Column(Integer, nullable=False,server_default="0")
     deletions = Column(Integer, nullable=False,server_default="0")
-    
+
+    # Relationships for eager loading
+    author = relationship("Contributors", foreign_keys=[author_id], lazy="select")
+    labels = relationship("PrLabels", foreign_keys="PrLabels.pull_request_id", lazy="select")
+    reviewers = relationship(
+        "Contributors",
+        secondary="reviews",
+        primaryjoin="PullRequests.id == Review.pull_request_id",
+        secondaryjoin="Review.reviewer_id == Contributors.id",
+        lazy="select",
+        viewonly=True,
+        overlaps="author",
+    )
 
     __table_args__ = (
         UniqueConstraint('github_pr_number','repository_id',name='uq_github_pr_number_repository_id'),

@@ -1,6 +1,8 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
 from uuid import UUID
+from app.schemas.contributors import ContributorResponse
+from app.schemas.pr_labels import PrLabelResponse
+from typing import Optional, List
 from datetime import datetime
 
 class PullRequestBase(BaseModel):
@@ -35,3 +37,13 @@ class PullRequestResponse(PullRequestBase):
     id: UUID
     repository_id: UUID
     author_id: UUID
+
+
+class PullRequestDetailResponse(PullRequestBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: UUID
+    repository_id: UUID
+    author: ContributorResponse
+    labels: List[PrLabelResponse]
+    reviewers: List[ContributorResponse]
