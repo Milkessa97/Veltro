@@ -26,3 +26,18 @@ export async function getCurrentUser(): Promise<UserInfo> {
 
   return res.json()
 }
+
+/**
+ * Logs out the user by clearing credentials and cookies on the backend.
+ */
+export async function logout(): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  })
+
+  if (!res.ok) {
+    throw new Error(`Logout failed: ${res.statusText}`)
+  }
+}
+

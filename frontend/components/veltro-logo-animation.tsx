@@ -10,7 +10,7 @@ gsap.registerPlugin(ScrollTrigger);
 const ROTATION_AMOUNT = 360;
 
 // Reduced layer count for optimal scroll rendering performance
-const THICKNESS_LAYERS = 4;
+const THICKNESS_LAYERS = 0;
 
 interface VeltroLogoAnimationProps {
   logoSrc?: string;

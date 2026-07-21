@@ -9,11 +9,13 @@ from app.config import get_settings
 from app.db.session import get_db
 from app.models.repositories import Repositories
 from app.models.webhook_events import WebhookEvent
+import app.services.webhooks as webhook_service
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(tags=["Webhooks"])
+
 
 async def verify_signature(request: Request, x_hub_signature_256: str = Header(None)):
     if not settings.GITHUB_WEBHOOK_SECRET:
@@ -28,7 +30,6 @@ async def verify_signature(request: Request, x_hub_signature_256: str = Header(N
         )
 
     body = await request.body()
-    # Compute signature
     mac = hmac.new(
         settings.GITHUB_WEBHOOK_SECRET.encode("utf-8"),
         body,
@@ -42,6 +43,7 @@ async def verify_signature(request: Request, x_hub_signature_256: str = Header(N
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid signature"
         )
+
 
 @router.post("/webhooks/github", status_code=status.HTTP_202_ACCEPTED)
 async def github_webhook(
@@ -69,36 +71,53 @@ async def github_webhook(
     ).first()
 
     if existing_event:
+        logger.warning(f"Delivery {x_github_delivery} already received for webhook event {x_github_event}")
         return {"status": "duplicate", "detail": f"Delivery {x_github_delivery} already received"}
 
-    # Resolve repository if possible
-    repository_id = None
+    # Resolve repository by GitHub numeric ID — single authoritative lookup
     repo_github_id = payload.get("repository", {}).get("id")
+    repository_id = None
+
     if repo_github_id is not None:
         repo = db.query(Repositories).filter(Repositories.github_id == repo_github_id).first()
         if repo:
             repository_id = repo.id
+        else:
+            logger.warning(f"Repository github_id={repo_github_id} not found in DB; event will be stored unlinked.")
+    else:
+        # Some events (e.g. installation_repositories) carry no repository object
+        logger.debug(f"No repository payload in event {x_github_event}/{x_github_delivery}")
 
-    # Create the webhook event log
+    # Persist the raw event immediately — before processing, so we never lose it
+    action = payload.get("action")
     event = WebhookEvent(
         repository_id=repository_id,
         event_type=x_github_event,
-        action=payload.get("action"),
+        action=action,
         github_delivery=x_github_delivery,
         payload=payload,
         processed=False,
         received_at=datetime.now(UTC),
     )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
 
+    # Dispatch to the service layer, passing the already-resolved repository_id
     try:
-        db.add(event)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to persist webhook event {x_github_delivery}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database persistence failed"
+        await webhook_service.handle_event(
+            db=db,
+            event_type=x_github_event,
+            action=action,
+            payload=payload,
+            repository_id=repository_id,
         )
+        event.processed = True
+        db.commit()
 
-    return {"status": "accepted", "delivery": x_github_delivery}
+    except Exception as e:
+        logger.exception(f"Error processing webhook event {x_github_delivery}: {e}")
+        event.error_message = str(e)
+        db.commit()
+
+    return {"status": "ok"}

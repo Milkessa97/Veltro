@@ -1,6 +1,6 @@
 "use client"
 
-import { Twitter, Github, Linkedin } from "lucide-react"
+import { Mail, Github, Linkedin } from "lucide-react"
 
 export function FooterSection() {
   return (
@@ -12,14 +12,14 @@ export function FooterSection() {
         </div>
         <p className="text-foreground/90 text-sm font-medium leading-[18px] text-left">Engineering analytics for teams</p>
         <div className="flex justify-start items-start gap-3">
-          <a href="#" aria-label="Twitter" className="w-4 h-4 flex items-center justify-center">
-            <Twitter className="w-full h-full text-muted-foreground" />
-          </a>
-          <a href="#" aria-label="GitHub" className="w-4 h-4 flex items-center justify-center">
+          <a href="https://github.com/Milkessa97" aria-label="GitHub" className="w-4 h-4 flex items-center justify-center">
             <Github className="w-full h-full text-muted-foreground" />
           </a>
-          <a href="#" aria-label="LinkedIn" className="w-4 h-4 flex items-center justify-center">
+          <a href="https://www.linkedin.com/in/milkessa-habtamu-831bb432b/" aria-label="LinkedIn" className="w-4 h-4 flex items-center justify-center">
             <Linkedin className="w-full h-full text-muted-foreground" />
+          </a>
+          <a href="mailto:[milkessahabtamukebu@gmail.com]" aria-label="Mail" className="w-4 h-4 flex items-center justify-center">
+            <Mail className="w-full h-full text-muted-foreground" />
           </a>
         </div>
       </div>
@@ -44,9 +44,6 @@ export function FooterSection() {
             </a>
             <a href="#" className="text-foreground text-sm font-normal leading-5 hover:underline">
               Developers
-            </a>
-            <a href="#" className="text-foreground text-sm font-normal leading-5 hover:underline">
-              Contact
             </a>
           </div>
         </div>

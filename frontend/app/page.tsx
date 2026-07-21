@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { HeroSection } from "@/components/hero-section"
 import { DashboardPreview } from "@/components/dashboard-preview"
@@ -14,17 +14,46 @@ import { LoadingScreen } from "@/components/loading-screen"
 
 export default function LandingPage() {
   const [loading, setLoading] = useState(true)
+  const [pageReady, setPageReady] = useState(false)
+
+  // Signal that the page has been fully painted using two rAF cycles.
+  // This ensures the browser has committed at least one frame before we
+  // allow the loading screen to dismiss.
+  useEffect(() => {
+    let raf2: number
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setPageReady(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [])
+
 
   return (
     <>
       <AnimatePresence mode="wait">
-        {loading && <LoadingScreen onComplete={() => setLoading(false)} />}
+        {loading && (
+          <LoadingScreen
+            onComplete={() => setLoading(false)}
+            isPageReady={pageReady}
+          />
+        )}
       </AnimatePresence>
 
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: loading ? 0 : 1, y: loading ? 40 : 0 }}
-        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0, y: 12, scale: 0.995 }}
+        animate={{
+          opacity: loading ? 0 : 1,
+          y: loading ? 12 : 0,
+          scale: loading ? 0.995 : 1,
+        }}
+        transition={{
+          duration: 0.75,
+          ease: [0.25, 0.46, 0.45, 0.94],
+          opacity: { duration: 0.6 },
+        }}
         className="min-h-screen relative isolate overflow-hidden pb-0"
       >
         <div className="absolute inset-0 bg-background -z-50" />

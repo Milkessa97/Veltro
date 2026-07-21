@@ -65,6 +65,129 @@
     background: radial-gradient(circle at center, hsl(var(--primary) / 0.25), transparent 70%);
   }
 
+  .loader {
+    --path: 157.4;
+    --dot: 0;
+    width: 44px;
+    height: 44px;
+    display: inline-block;
+    position: relative;
+    color: hsl(var(--primary));
+  }
+
+  .loader svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+  }
+
+  .loader circle,
+  .loader rect,
+  .loader polygon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 157.4;
+    stroke-dashoffset: 0;
+    transform-origin: center;
+    animation-duration: 1.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .loader circle {
+    animation-name: pathCircle;
+  }
+
+  .loader rect {
+    animation-name: pathRect;
+  }
+
+  .loader polygon {
+    animation-name: pathTriangle;
+  }
+
+  .loader.triangle circle,
+  .loader.triangle rect {
+    display: none;
+  }
+
+  .loader.triangle polygon {
+    animation-name: pathTriangle;
+  }
+
+  @keyframes pathTriangle {
+    33% {
+      stroke-dashoffset: 74;
+    }
+    66% {
+      stroke-dashoffset: 147;
+    }
+    100% {
+      stroke-dashoffset: 221;
+    }
+  }
+
+  @keyframes dotTriangle {
+    33% {
+      transform: translate(0, 0);
+    }
+    66% {
+      transform: translate(10px, -18px);
+    }
+    100% {
+      transform: translate(-10px, -18px);
+    }
+  }
+
+  @keyframes pathRect {
+    25% {
+      stroke-dashoffset: 64;
+    }
+    50% {
+      stroke-dashoffset: 128;
+    }
+    75% {
+      stroke-dashoffset: 192;
+    }
+    100% {
+      stroke-dashoffset: 256;
+    }
+  }
+
+  @keyframes dotRect {
+    25% {
+      transform: translate(0, 0);
+    }
+    50% {
+      transform: translate(18px, -18px);
+    }
+    75% {
+      transform: translate(0, -36px);
+    }
+    100% {
+      transform: translate(-18px, -18px);
+    }
+  }
+
+  @keyframes pathCircle {
+    25% {
+      stroke-dashoffset: 125;
+    }
+    50% {
+      stroke-dashoffset: 175;
+    }
+    75% {
+      stroke-dashoffset: 225;
+    }
+    100% {
+      stroke-dashoffset: 275;
+    }
+  }
+
   @keyframes draw-check {
     to {
       stroke-dashoffset: 0;

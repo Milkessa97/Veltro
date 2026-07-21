@@ -12,6 +12,7 @@ export function Header() {
   const navItems = [
     { name: "Features", href: "#features-section" },
     { name: "Contact", href: "#contact-section" },
+    { name: "Docs", href: "/docs" },
   ]
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -65,7 +66,7 @@ export function Header() {
                   <Link
                     key={item.name}
                     href={item.href}
-                    onClick={(e) => handleScroll(e, item.href)}
+                    onClick={(e) => { if (item.href.charAt(0) === "/") { e.preventDefault(); } handleScroll(e, item.href) }}
                     className="text-muted-foreground hover:text-foreground justify-start text-lg py-2"
                   >
                     {item.name}

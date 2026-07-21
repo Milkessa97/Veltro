@@ -8,6 +8,7 @@ from sqlalchemy import func, case
 from app.models.pull_requests import PullRequests
 from app.models.contributors import Contributors
 from app.models.reviews import Review
+from app.models.pull_request_reviewers import PullRequestReviewer
 
 logger = logging.getLogger(__name__)
 
@@ -144,9 +145,12 @@ def get_repo_metrics(db: Session, repository_id: UUID, date_range_days: int = 30
 
 def get_contributor_metrics(db: Session, repository_id: UUID, date_range_days: int = 30) -> List[Dict[str, Any]]:
     """
-    Computes performance metrics (PRs opened, PRs reviewed, avg cycle time)
-    for each contributor in the repository.
-    Uses two bulk aggregation queries instead of N+2 per-contributor queries.
+    Computes performance metrics for each contributor:
+    - PRs opened + avg cycle time (from pull_requests)
+    - PRs reviewed via any review submission (from reviews)
+    - review_assignments: PRs they were formally requested to review
+    - organic_reviews: PRs they reviewed without being assigned
+    Uses 4 bulk aggregation queries — no N+1.
     """
     cutoff_date = datetime.now(UTC) - timedelta(days=date_range_days)
 
@@ -160,7 +164,7 @@ def get_contributor_metrics(db: Session, repository_id: UUID, date_range_days: i
 
     contributor_ids = [c.id for c in contributors]
 
-    # --- Query 2: opened PR counts and avg cycle time per author (only needed scalar columns) ---
+    # --- Query 2: opened PR counts and avg cycle time per author ---
     opened_rows = db.query(
         PullRequests.author_id,
         func.count(PullRequests.id).label("prs_opened"),
@@ -187,7 +191,7 @@ def get_contributor_metrics(db: Session, repository_id: UUID, date_range_days: i
         for row in opened_rows
     }
 
-    # --- Query 3: reviewed PR counts per contributor (distinct PRs reviewed) ---
+    # --- Query 3: reviews submitted — distinct PRs reviewed per contributor ---
     reviewed_rows = db.query(
         Review.reviewer_id,
         func.count(Review.pull_request_id.distinct()).label("prs_reviewed"),
@@ -204,11 +208,45 @@ def get_contributor_metrics(db: Session, repository_id: UUID, date_range_days: i
         for row in reviewed_rows
     }
 
+    # --- Query 4: pull_request_reviewers — assigned vs organic breakdown ---
+    # Assigned = status in ('requested', 'approved', 'changes_requested', 'commented')
+    # Organic  = status starts with 'unassigned_'
+    assignment_rows = db.query(
+        PullRequestReviewer.contributor_id,
+        func.count(
+            case(
+                (~PullRequestReviewer.status.like("unassigned_%"), 1),
+                else_=None,
+            )
+        ).label("review_assignments"),
+        func.count(
+            case(
+                (PullRequestReviewer.status.like("unassigned_%"), 1),
+                else_=None,
+            )
+        ).label("organic_reviews"),
+    ).join(
+        PullRequests, PullRequests.id == PullRequestReviewer.pull_request_id
+    ).filter(
+        PullRequests.repository_id == repository_id,
+        PullRequestReviewer.contributor_id.in_(contributor_ids),
+        PullRequests.opened_at >= cutoff_date,
+    ).group_by(PullRequestReviewer.contributor_id).all()
+
+    assignments_by_contributor = {
+        str(row.contributor_id): {
+            "review_assignments": row.review_assignments or 0,
+            "organic_reviews": row.organic_reviews or 0,
+        }
+        for row in assignment_rows
+    }
+
     # --- Assemble metrics ---
     metrics = []
     for c in contributors:
         cid = str(c.id)
         opened_data = opened_by_contributor.get(cid, {"prs_opened": 0, "avg_cycle_time_hours": 0.0})
+        assign_data = assignments_by_contributor.get(cid, {"review_assignments": 0, "organic_reviews": 0})
         metrics.append({
             "id": cid,
             "username": c.github_login,
@@ -217,6 +255,8 @@ def get_contributor_metrics(db: Session, repository_id: UUID, date_range_days: i
             "prs_opened": opened_data["prs_opened"],
             "prs_reviewed": reviewed_by_contributor.get(cid, 0),
             "avg_cycle_time_hours": opened_data["avg_cycle_time_hours"],
+            "review_assignments": assign_data["review_assignments"],
+            "organic_reviews": assign_data["organic_reviews"],
         })
 
     # Sort contributors by activity level (total PRs opened + reviewed desc)

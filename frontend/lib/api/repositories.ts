@@ -123,6 +123,10 @@ export interface ContributorMetrics {
   prs_opened: number
   prs_reviewed: number
   avg_cycle_time_hours: number
+  /** PRs where this contributor was formally requested as reviewer */
+  review_assignments: number
+  /** PRs where this contributor reviewed organically (no assignment) */
+  organic_reviews: number
 }
 
 /** Returns per-contributor metrics for the repository over `days` days. */
@@ -134,5 +138,31 @@ export async function getContributorMetrics(
     credentials: "include",
   })
   if (!res.ok) throw new Error(`Failed to fetch contributor metrics: ${res.statusText}`)
+  return res.json()
+}
+
+// ─── Sync Logs ────────────────────────────────────────────────────────────────
+
+export interface SyncLog {
+  id: string
+  repository_id: string
+  /** "running" | "completed" | "failed" */
+  status: string
+  /** "manual" | "webhook" | "scheduled" */
+  triggered_by: string
+  prs_fetched: number
+  reviews_fetched: number
+  commits_fetched: number
+  error_message: string | null
+  started_at: string
+  completed_at: string | null
+}
+
+/** Returns the most recent sync log entries for the repository (newest first). */
+export async function getSyncLogs(repoId: string, limit = 20): Promise<SyncLog[]> {
+  const res = await fetch(`${API_URL}/repos/${repoId}/sync-logs?limit=${limit}`, {
+    credentials: "include",
+  })
+  if (!res.ok) throw new Error(`Failed to fetch sync logs: ${res.statusText}`)
   return res.json()
 }

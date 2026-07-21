@@ -20,8 +20,9 @@ import {
 } from "lucide-react"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { logout } from "@/lib/api/auth"
 import { cn } from "@/lib/utils"
 import { useRepo } from "@/components/dashboard/repo-context"
 import type { Repository } from "@/lib/api/repositories"
@@ -44,7 +45,8 @@ export default function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
-  const { repositories, activeRepo, setActiveRepoId } = useRepo()
+  const router = useRouter()
+  const { repositories, activeRepo, setActiveRepoId, isSyncing } = useRepo()
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -69,17 +71,25 @@ export default function Sidebar() {
     href,
     icon: Icon,
     children,
+    onClick,
   }: {
     href: string
     icon: any
     children: React.ReactNode
+    onClick?: (e: React.MouseEvent) => void
   }) {
     const isActive = pathname === href
     const labelString = typeof children === "string" ? children : ""
     return (
       <Link
         href={href}
-        onClick={handleNavigation}
+        onClick={(e) => {
+          if (onClick) {
+            onClick(e)
+          } else {
+            handleNavigation()
+          }
+        }}
         className={cn(
           "flex items-center py-2 text-sm rounded-md transition-colors",
           isCollapsed ? "justify-center px-2" : "px-3",
@@ -189,7 +199,7 @@ export default function Sidebar() {
                         {!isCollapsed && (
                           <>
                             <span className="truncate flex-1">{repo.name}</span>
-                            <SyncIndicator isSynced={repo.is_synced} isSyncing={activeRepo?.id === repo.id} />
+                            <SyncIndicator isSynced={repo.is_synced} isSyncing={activeRepo?.id === repo.id && isSyncing} />
                           </>
                         )}
                       </button>
@@ -202,10 +212,22 @@ export default function Sidebar() {
 
           <div className={cn("py-4 border-t border-gray-200 dark:border-[#1F1F23]", isCollapsed ? "px-2" : "px-4")}>
             <div className="space-y-1">
-              <NavItem href="#" icon={Settings}>
+              <NavItem href="/dashboard/settings" icon={Settings}>
                 Settings
               </NavItem>
-              <NavItem href="#" icon={LogOut}>
+              <NavItem
+                href="#"
+                icon={LogOut}
+                onClick={async (e) => {
+                  e.preventDefault()
+                  try {
+                    await logout()
+                    router.push("/login")
+                  } catch (err) {
+                    console.error("Logout failed:", err)
+                  }
+                }}
+              >
                 Logout
               </NavItem>
             </div>

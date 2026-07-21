@@ -15,6 +15,13 @@ import {
   Hourglass,
   ShieldAlert,
   Zap,
+  Settings2, 
+  Calendar, 
+  KeyRound, 
+  CheckCircle2, 
+  AlertCircle,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import {
   Tooltip,
@@ -22,18 +29,84 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartTooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Panel, PanelHeader } from "./panel"
 import { EmptyState } from "./empty-state"
-import { useRepo } from "./repo-context"
+import { useRepo, type DateRange } from "./repo-context"
 import {
   getRepoMetrics,
   getContributorMetrics,
+  getPullRequests,
   type RepoMetrics,
   type ContributorMetrics,
+  type PullRequestDetail,
 } from "@/lib/api/repositories"
-import { formatRelativeTime } from "@/lib/veltro-data"
+
+
+// ─── Weekly trend data helper ──────────────────────────────────────────────────
+
+interface TrendBucket {
+  week: string
+  avgCycleTime: number
+  avgReviewLatency: number
+}
+
+function buildWeeklyTrendData(prs: PullRequestDetail[], days: number): TrendBucket[] {
+  const now = Date.now()
+  const numWeeks = Math.max(1, Math.ceil(days / 7))
+  const buckets: TrendBucket[] = []
+
+  for (let i = numWeeks - 1; i >= 0; i--) {
+    const start = now - (i + 1) * 7 * 86_400_000
+    const end   = now - i       * 7 * 86_400_000
+    const label = new Date(start).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+
+    // PRs merged in this week
+    const mergedPRs = prs.filter((p) => {
+      if (!p.merged_at) return false
+      const t = new Date(p.merged_at).getTime()
+      return t >= start && t < end
+    })
+
+    // PRs opened in this week that have a review
+    const reviewedPRs = prs.filter((p) => {
+      const openedTime = new Date(p.opened_at).getTime()
+      return openedTime >= start && openedTime < end && p.first_review_at
+    })
+
+    const cycleTimes = mergedPRs.map((p) => {
+      const ms = new Date(p.merged_at!).getTime() - new Date(p.opened_at).getTime()
+      return Math.max(0, ms / 3_600_000)
+    })
+
+    const reviewLatencies = reviewedPRs.map((p) => {
+      const ms = new Date(p.first_review_at!).getTime() - new Date(p.opened_at).getTime()
+      return Math.max(0, ms / 3_600_000)
+    })
+
+    const avgCycleTime = cycleTimes.length > 0 
+      ? Math.round((cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length) * 10) / 10
+      : 0
+
+    const avgReviewLatency = reviewLatencies.length > 0 
+      ? Math.round((reviewLatencies.reduce((a, b) => a + b, 0) / reviewLatencies.length) * 10) / 10
+      : 0
+
+    buckets.push({ week: label, avgCycleTime, avgReviewLatency })
+  }
+  return buckets
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,6 +170,93 @@ function MetricCard({ metric, loading }: { metric: MetricDef; loading: boolean }
       </TooltipProvider>
       <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{metric.value}</h3>
       <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{metric.subtitle}</p>
+    </Panel>
+  )
+}
+
+// ─── Cycle Time & Review Latency Trend Chart ──────────────────────────────────
+
+function CycleTimeTrendChart({
+  pullRequests,
+  loading,
+  days,
+}: {
+  pullRequests: PullRequestDetail[]
+  loading: boolean
+  days: number
+}) {
+  const data = buildWeeklyTrendData(pullRequests, days)
+  const hasData = data.some((b) => b.avgCycleTime > 0 || b.avgReviewLatency > 0)
+
+  return (
+    <Panel className="p-6">
+      <PanelHeader icon={BarChart3} title="Cycle Time & Review Latency Trends" />
+      {loading ? (
+        <div className="h-[220px] animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded-lg" />
+      ) : !hasData ? (
+        <div className="h-[220px] flex items-center justify-center">
+          <p className="text-sm text-gray-400 dark:text-gray-500">No review or merge data in this period.</p>
+        </div>
+      ) : (
+        <>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={data}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="currentColor"
+                className="text-zinc-200 dark:text-zinc-700"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="week"
+                tick={{ fontSize: 11, fill: "currentColor" }}
+                className="text-gray-400 dark:text-gray-500"
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={(value) => `${value}h`}
+                tick={{ fontSize: 11, fill: "currentColor" }}
+                className="text-gray-400 dark:text-gray-500"
+                axisLine={false}
+                tickLine={false}
+                width={35}
+              />
+              <RechartTooltip
+                contentStyle={{
+                  background: "hsl(var(--background,0 0% 100%))",
+                  border: "1px solid hsl(var(--border,214 32% 91%))",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                }}
+              />
+              <Legend
+                iconType="plainline"
+                iconSize={12}
+                wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="avgCycleTime"
+                name="Avg Cycle Time"
+                stroke="#7c3aed"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="avgReviewLatency"
+                name="Time to First Review"
+                stroke="#2563eb"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
+      )}
     </Panel>
   )
 }
@@ -174,9 +334,17 @@ function LifecycleStages({ metrics, loading }: { metrics: RepoMetrics | null; lo
   )
 }
 
-// ─── Bottleneck Panel ─────────────────────────────────────────────────────────
+// ─── Bottleneck Panel ────────────────────────────────────────────────────
 
-function BottleneckPanel({ metrics, loading }: { metrics: RepoMetrics | null; loading: boolean }) {
+function BottleneckPanel({
+  metrics,
+  contributors,
+  loading,
+}: {
+  metrics: RepoMetrics | null
+  contributors: ContributorMetrics[]
+  loading: boolean
+}) {
   const score = metrics?.bottleneck_score ?? 0
   const severity =
     score >= 60 ? "high" : score >= 30 ? "medium" : "low"
@@ -206,6 +374,14 @@ function BottleneckPanel({ metrics, loading }: { metrics: RepoMetrics | null; lo
   const circumference = 2 * Math.PI * r
   const offset = circumference - (score / 100) * circumference
 
+  // Reviewer insight aggregates from contributor metrics
+  const totalAssigned = contributors.reduce((s, c) => s + c.review_assignments, 0)
+  const totalOrganic = contributors.reduce((s, c) => s + c.organic_reviews, 0)
+  // Contributors with formal assignments but <50% completion rate
+  const incompleteReviewers = contributors.filter(
+    (c) => c.review_assignments >= 3 && c.prs_reviewed / c.review_assignments < 0.5
+  )
+
   return (
     <Panel className="p-6">
       <PanelHeader icon={ShieldAlert} title="Bottleneck Score" />
@@ -220,42 +396,100 @@ function BottleneckPanel({ metrics, loading }: { metrics: RepoMetrics | null; lo
       ) : !metrics ? (
         <p className="text-sm text-gray-400 dark:text-gray-500">No data for this period.</p>
       ) : (
-        <div className="flex items-center gap-6">
-          {/* Radial progress */}
-          <svg className="w-20 h-20 -rotate-90 flex-shrink-0" viewBox="0 0 80 80">
-            <circle cx="40" cy="40" r={r} strokeWidth="7" className="stroke-zinc-100 dark:stroke-zinc-800" fill="none" />
-            <circle
-              cx="40"
-              cy="40"
-              r={r}
-              strokeWidth="7"
-              fill="none"
-              className={cn("transition-all duration-700", ringColor)}
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              strokeLinecap="round"
-            />
-            <text
-              x="40"
-              y="40"
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="rotate-90"
-              style={{ transform: "rotate(90deg)", transformOrigin: "40px 40px" }}
-            />
-          </svg>
-          <div>
-            <p className={cn("text-3xl font-bold tabular-nums", textColor)}>{fmtScore(score)}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-pretty">{label}</p>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2">
-              {metrics.open_prs} open PRs · {metrics.open_prs > 0 ? `${Math.round((score / 100) * metrics.open_prs)} unreviewed` : "none"}
-            </p>
+        <>
+          {/* Radial score + label */}
+          <div className="flex items-center gap-6">
+            <svg className="w-20 h-20 -rotate-90 flex-shrink-0" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r={r} strokeWidth="7" className="stroke-zinc-100 dark:stroke-zinc-800" fill="none" />
+              <circle
+                cx="40"
+                cy="40"
+                r={r}
+                strokeWidth="7"
+                fill="none"
+                className={cn("transition-all duration-700", ringColor)}
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+              />
+              <text
+                x="40"
+                y="40"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="rotate-90"
+                style={{ transform: "rotate(90deg)", transformOrigin: "40px 40px" }}
+              />
+            </svg>
+            <div>
+              <p className={cn("text-3xl font-bold tabular-nums", textColor)}>{fmtScore(score)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-pretty">{label}</p>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2">
+                {metrics.open_prs} open PRs · {metrics.open_prs > 0 ? `${Math.round((score / 100) * metrics.open_prs)} unreviewed` : "none"}
+              </p>
+            </div>
           </div>
-        </div>
+
+          {/* Reviewer breakdown — only shown when assignment data exists */}
+          {(totalAssigned > 0 || totalOrganic > 0) && (
+            <div className="mt-5 pt-4 border-t border-gray-100 dark:border-[#1F1F23] space-y-3">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">Review Coverage</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Assigned reviews */}
+                <div className="rounded-lg bg-indigo-50 dark:bg-indigo-900/20 p-3">
+                  <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">{totalAssigned}</p>
+                  <p className="text-[11px] text-indigo-500 dark:text-indigo-400/80 mt-0.5">Assigned reviews</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">via CODEOWNERS / manual</p>
+                </div>
+                {/* Organic reviews */}
+                <div className="rounded-lg bg-teal-50 dark:bg-teal-900/20 p-3">
+                  <p className="text-lg font-bold text-teal-600 dark:text-teal-400 tabular-nums">{totalOrganic}</p>
+                  <p className="text-[11px] text-teal-500 dark:text-teal-400/80 mt-0.5">Proactive reviews</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">no assignment needed</p>
+                </div>
+              </div>
+
+              {/* Contributors behind on assignments */}
+              {incompleteReviewers.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    {incompleteReviewers.length} reviewer{incompleteReviewers.length > 1 ? "s" : ""} behind on assignments
+                  </p>
+                  {incompleteReviewers.slice(0, 3).map((c) => {
+                    const rate = c.review_assignments > 0
+                      ? Math.round((c.prs_reviewed / c.review_assignments) * 100)
+                      : 0
+                    return (
+                      <div key={c.id} className="flex items-center gap-2">
+                        <img
+                          src={c.avatar_url || "/placeholder.svg"}
+                          alt={c.display_name}
+                          className="w-5 h-5 rounded-full flex-shrink-0"
+                        />
+                        <span className="text-xs text-gray-600 dark:text-gray-300 truncate flex-1">{c.display_name}</span>
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 tabular-nums font-medium flex-shrink-0">
+                          {rate}%
+                        </span>
+                        <div className="w-12 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
+                          <div
+                            className="h-full bg-amber-400 rounded-full"
+                            style={{ width: `${rate}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </Panel>
   )
 }
+
 
 // ─── Contributor Activity ─────────────────────────────────────────────────────
 
@@ -371,6 +605,7 @@ export default function Overview() {
 
   const [metrics, setMetrics] = useState<RepoMetrics | null>(null)
   const [contributors, setContributors] = useState<ContributorMetrics[]>([])
+  const [pullRequests, setPullRequests] = useState<PullRequestDetail[]>([])
   const [dataLoading, setDataLoading] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
 
@@ -382,11 +617,13 @@ export default function Overview() {
     Promise.all([
       getRepoMetrics(activeRepo.id, dateRangeDays),
       getContributorMetrics(activeRepo.id, dateRangeDays),
+      getPullRequests(activeRepo.id, dateRangeDays),
     ])
-      .then(([m, c]) => {
+      .then(([m, c, prs]) => {
         if (!cancelled) {
           setMetrics(m)
           setContributors(c)
+          setPullRequests(prs)
         }
       })
       .catch(() => {
@@ -401,7 +638,7 @@ export default function Overview() {
   if (repoLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {[...Array(8)].map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <MetricCard key={i} metric={{ icon: Clock, label: "", value: "", subtitle: "", sentiment: "neutral" }} loading />
         ))}
       </div>
@@ -441,7 +678,7 @@ export default function Overview() {
   if (isSyncing) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {[...Array(8)].map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <MetricCard key={i} metric={{ icon: Clock, label: "", value: "", subtitle: "", sentiment: "neutral" }} loading />
         ))}
         <div className="col-span-full flex items-center justify-center gap-2 py-10 text-sm text-gray-500 dark:text-gray-400">
@@ -481,49 +718,24 @@ export default function Overview() {
       subtitle: `Merged PRs per week over ${dateRangeDays}d`,
       sentiment: metrics ? (metrics.deploys_per_week >= 2 ? "good" : "warn") : "neutral",
     },
-    {
-      icon: GitPullRequest,
-      label: "Open PRs",
-      value: String(metrics?.open_prs ?? "—"),
-      subtitle: `${metrics?.total_prs ?? 0} total in this period`,
-      sentiment: "neutral",
-    },
-    {
-      icon: GitMerge,
-      label: "Merged PRs",
-      value: String(metrics?.merged_prs ?? "—"),
-      subtitle: `${metrics?.closed_prs ?? 0} closed without merge`,
-      sentiment: "neutral",
-    },
-    {
-      icon: BarChart3,
-      label: "Additions / Deletions",
-      value: metrics ? `+${metrics.total_additions.toLocaleString()}` : "—",
-      subtitle: metrics ? `−${metrics.total_deletions.toLocaleString()} lines removed` : "Sync to load",
-      sentiment: "neutral",
-    },
-    {
-      icon: Users2,
-      label: "Contributors",
-      value: String(contributors.length || "—"),
-      subtitle: "Active in this period",
-      sentiment: "neutral",
-    },
   ]
 
   return (
     <div className="space-y-4">
-      {/* 8 KPI cards */}
+      {/* 4 KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {metricCards.map((m) => (
           <MetricCard key={m.label} metric={m} loading={dataLoading} />
         ))}
       </div>
 
+      {/* PR Activity line chart */}
+      <CycleTimeTrendChart pullRequests={pullRequests} loading={dataLoading} days={dateRangeDays} />
+
       {/* Lifecycle stages + bottleneck side by side */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <LifecycleStages metrics={metrics} loading={dataLoading} />
-        <BottleneckPanel metrics={metrics} loading={dataLoading} />
+        <BottleneckPanel metrics={metrics} contributors={contributors} loading={dataLoading} />
       </div>
 
       {/* Contributor activity */}

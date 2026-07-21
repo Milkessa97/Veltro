@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, Fragment } from "react"
-import { ChevronDown, ChevronUp, ChevronsUpDown, Users2 } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronsUpDown, Users2, UserCheck, UserPlus } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Panel } from "./panel"
@@ -25,21 +25,65 @@ const bottleneckConfig: Record<Bottleneck, { label: string; text: string; bg: st
   merge: { label: "Merge bottleneck", text: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30" },
 }
 
-/** Heuristic bottleneck detection from API data alone */
+/**
+ * Bottleneck detection — uses assignment data when available.
+ *
+ * Rules:
+ * - "Merge bottleneck": PRs this person opens take >60 h avg to merge.
+ * - "Review bottleneck": only flagged when they have FORMAL review assignments
+ *   (CODEOWNERS or manual) and completed fewer than 50% of them.
+ *   A contributor who only opens PRs is NEVER flagged — they can't review
+ *   their own work and may simply not be in any review rotation.
+ */
 function detectBottleneck(c: ContributorMetrics): Bottleneck {
-  // High cycle time and low review ratio → merge bottleneck
-  if (c.avg_cycle_time_hours > 60 && c.prs_opened > 10) return "merge"
-  // Opened far more than reviewed → review bottleneck (not pulling weight as reviewer)
-  if (c.prs_opened > 0 && c.prs_reviewed / Math.max(c.prs_opened, 1) < 0.4 && c.prs_opened > 8) return "review"
+  // Merge bottleneck: own PRs sit open for a very long time
+  if (c.avg_cycle_time_hours > 60 && c.prs_opened > 5) return "merge"
+
+  // Review bottleneck: had real assignments but completed fewer than half
+  // Require at least 3 assignments so noise from tiny samples doesn't trigger it
+  if (c.review_assignments >= 3) {
+    const completed = c.prs_reviewed  // prs_reviewed counts actual review submissions
+    const completionRate = completed / c.review_assignments
+    if (completionRate < 0.5) return "review"
+  }
+
   return "none"
 }
 
 function bottleneckSummary(c: ContributorMetrics, bn: Bottleneck): string {
   if (bn === "merge")
-    return `${c.display_name} has an avg cycle time of ${c.avg_cycle_time_hours.toFixed(0)}h, suggesting PRs are sitting open for long periods before merging.`
-  if (bn === "review")
-    return `${c.display_name} opened ${c.prs_opened} PRs but reviewed only ${c.prs_reviewed}, which may indicate an unbalanced review load.`
+    return `${c.display_name}'s PRs take an average of ${c.avg_cycle_time_hours.toFixed(0)} h to merge — work is landing slowly. Check for long-running feature branches or lack of attention post-review.`
+  if (bn === "review") {
+    const rate = c.review_assignments > 0
+      ? Math.round((c.prs_reviewed / c.review_assignments) * 100)
+      : 0
+    return `${c.display_name} was assigned to review ${c.review_assignments} PRs but completed ${c.prs_reviewed} (${rate}%). Unreviewed assignments slow down other contributors.`
+  }
   return `${c.display_name} maintains a healthy balance of authoring and reviewing. No blocking patterns detected this period.`
+}
+
+function ReviewerBadge({
+  label,
+  count,
+  icon: Icon,
+  color,
+}: {
+  label: string
+  count: number
+  icon: React.ComponentType<{ className?: string }>
+  color: string
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap",
+        color,
+      )}
+    >
+      <Icon className="w-3 h-3" />
+      {count} {label}
+    </span>
+  )
 }
 
 export default function ContributorsTable() {
@@ -165,6 +209,7 @@ export default function ContributorsTable() {
               const isExpanded = expanded === c.id
               const isDismissed = dismissed.includes(c.id)
               const activity = c.prs_opened + c.prs_reviewed
+              const hasReviewerData = c.review_assignments > 0 || c.organic_reviews > 0
               return (
                 <Fragment key={c.id}>
                   <tr
@@ -176,6 +221,7 @@ export default function ContributorsTable() {
                       if (bn !== "none" && !isDismissed) setExpanded(isExpanded ? null : c.id)
                     }}
                   >
+                    {/* Contributor identity */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Image
@@ -197,6 +243,27 @@ export default function ContributorsTable() {
                               />
                             </span>
                           </div>
+                          {/* Reviewer role badges — shown inline under the name */}
+                          {hasReviewerData && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {c.review_assignments > 0 && (
+                                <ReviewerBadge
+                                  icon={UserCheck}
+                                  count={c.review_assignments}
+                                  label="assigned"
+                                  color="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
+                                />
+                              )}
+                              {c.organic_reviews > 0 && (
+                                <ReviewerBadge
+                                  icon={UserPlus}
+                                  count={c.organic_reviews}
+                                  label="proactive"
+                                  color="text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20"
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -211,6 +278,7 @@ export default function ContributorsTable() {
                           "px-2 py-1 rounded-full text-[11px] font-medium whitespace-nowrap",
                           bnConf.bg,
                           bnConf.text,
+                          isDismissed && "opacity-40 line-through",
                         )}
                       >
                         {bnConf.label}
@@ -225,6 +293,21 @@ export default function ContributorsTable() {
                             <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                               {bottleneckSummary(c, bn)}
                             </p>
+                            {/* Review assignment completion progress for review bottleneck */}
+                            {bn === "review" && c.review_assignments > 0 && (
+                              <div className="mt-3 space-y-1">
+                                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                  <span>Assignment completion</span>
+                                  <span>{c.prs_reviewed}/{c.review_assignments}</span>
+                                </div>
+                                <div className="h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-amber-500 rounded-full"
+                                    style={{ width: `${Math.min(100, (c.prs_reviewed / c.review_assignments) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
                             <div className="flex items-center gap-2 mt-3">
                               <button
                                 type="button"

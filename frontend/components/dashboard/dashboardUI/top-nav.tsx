@@ -76,9 +76,11 @@ export default function TopNav() {
         </div>
 
         {/* Last synced */}
-        <span className="hidden md:inline text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-          Synced {formatRelativeTime(lastSynced)}
-        </span>
+        {lastSynced && (
+          <span className="hidden md:inline text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            Synced {formatRelativeTime(lastSynced)}
+          </span>
+        )}
 
         {/* Sync Now */}
         <button

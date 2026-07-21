@@ -24,6 +24,10 @@ from app.models.commits import Commit # noqa: F401
 from app.models.reviews import Review # noqa: F401
 from app.models.sync_logs import SyncLog # noqa: F401
 from app.models.webhook_events import WebhookEvent # noqa: F401
+from app.models.pull_request_reviewers import PullRequestReviewer # noqa: F401
+from app.models.digest import Digest # noqa: F401
+
+
 
 settings = get_settings()
 # this is the Alembic Config object, which provides

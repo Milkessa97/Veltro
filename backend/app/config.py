@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
     CLAUDE_API_KEY: str
     SECRET_KEY: str
     ENCRYPTION_KEY: str
+    GEMINI_API_KEY: Optional[str] = None
 
     JWT_ALGORITHM: str
     ENVIRONMENT: str

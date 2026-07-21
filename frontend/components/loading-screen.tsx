@@ -2,25 +2,23 @@
 
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { Component as Loader2 } from "@/components/ui/loader-2"
 
 const LOADING_STATUSES = [
-  "Connecting to GitHub API...",
-  "Retrieving repository commits...",
-  "Analyzing review cycles...",
-  "Compiling contributor metrics...",
-  "Generating weekly digest...",
-  "Initializing DevPulse engine...",
+  "Optimizing page...",
+  "Injecting styles...",
+  "Assembling final layout...",
 ]
 
-export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
+export function LoadingScreen({ onComplete, isPageReady }: { onComplete: () => void; isPageReady: boolean }) {
   const [progress, setProgress] = useState(0)
   const [statusIndex, setStatusIndex] = useState(0)
   const [isExiting, setIsExiting] = useState(false)
 
   // Progress animation simulation
   useEffect(() => {
-    const duration = 2200 // Total loading time in ms
-    const intervalTime = 30
+    const duration = 1200 // Total loading time in ms
+    const intervalTime = 100
     const steps = duration / intervalTime
     const increment = 100 / steps
 
@@ -56,9 +54,10 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
     return () => clearInterval(statusInterval)
   }, [])
 
-  // Handle completion
+  // Handle completion — only dismiss once the loading bar is full
+  // AND the landing page has painted at least one frame.
   useEffect(() => {
-    if (progress === 100) {
+    if (progress === 100 && isPageReady) {
       const exitTimer = setTimeout(() => {
         setIsExiting(true)
         // Give time for exit animation before unmounting
@@ -71,7 +70,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
       }, 300)
       return () => clearTimeout(exitTimer)
     }
-  }, [progress, onComplete])
+  }, [progress, isPageReady, onComplete])
 
   return (
     <AnimatePresence>
@@ -92,39 +91,6 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
           </div>
 
           <div className="relative flex flex-col items-center max-w-sm w-full px-6">
-            {/* Logo Container with 3D Float and Glow */}
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ 
-                scale: 1, 
-                opacity: 1,
-                y: [0, -12, 0],
-              }}
-              transition={{
-                scale: { duration: 0.5, ease: "easeOut" },
-                opacity: { duration: 0.5 },
-                y: { repeat: Infinity, duration: 3, ease: "easeInOut" }
-              }}
-              className="relative mb-12 flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-tr from-zinc-900 to-zinc-800 border border-zinc-800/80 p-5 shadow-2xl shadow-primary/10"
-            >
-
-              {/* Logo SVG (embedded directly for zero network latency) */}
-              <svg className="h-full w-full z-10 relative" viewBox="0 0 810 730" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#a855f7" />
-                    <stop offset="100%" stopColor="#6366f1" />
-                  </linearGradient>
-                </defs>
-                <g transform="translate(0,730) scale(0.1,-0.1)">
-                  <path 
-                    d="M7385 6826 c-245 -75 -943 -345 -1447 -560 -939 -401 -1465 -697 -1722 -967 -302 -317 -593 -1052 -790 -1994 -60 -286 -123 -671 -112 -683 7 -7 1 -16 76 108 267 441 603 817 978 1096 164 122 163 122 297 206 353 222 678 384 1340 673 639 278 611 254 975 839 241 387 569 935 627 1044 57 109 59 164 9 219 -44 49 -113 54 -231 19z M610 5431 c-69 -25 -134 -90 -150 -152 -37 -134 20 -278 353 -899 60 -113 163 -306 229 -430 67 -124 133 -247 148 -275 29 -54 93 -173 160 -300 23 -44 103 -195 178 -335 74 -140 208 -392 297 -560 89 -168 197 -372 240 -455 43 -82 110 -211 150 -285 40 -74 157 -295 260 -490 253 -480 299 -560 364 -632 184 -203 449 -225 638 -54 195 176 940 1217 1870 2611 547 822 603 911 603 970 0 106 -122 82 -477 -95 -462 -229 -850 -499 -1177 -819 -291 -286 -499 -553 -796 -1024 -149 -236 -208 -282 -360 -281 -102 0 -161 26 -227 97 -78 85 -94 181 -173 1082 -72 824 -93 1002 -136 1165 -61 236 -183 404 -443 609 -340 269 -733 465 -1086 541 -149 32 -390 38 -465 11z" 
-                    fill="url(#logoGradient)"
-                  />
-                </g>
-              </svg>
-            </motion.div>
-
             {/* Application Title */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -146,18 +112,16 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
                   </g>
                 </svg>
               </h2>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/60 mt-2 font-mono">
-                Engineering Intelligence
-              </p>
             </motion.div>
 
-            {/* Glowing progress slider bar */}
-            <div className="relative h-[3px] w-full bg-zinc-900 rounded-full overflow-hidden mb-4">
-              <motion.div
-                className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-primary rounded-full shadow-[0_0_12px_rgba(168,85,247,0.8)]"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mb-6"
+            >
+              <Loader2 className="mx-auto mb-6" />
+            </motion.div>
 
             {/* Percentage Indicator */}
             <div className="flex items-center justify-between w-full text-xs font-mono text-muted-foreground/60 mb-2">
