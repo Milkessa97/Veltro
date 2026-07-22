@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     GITHUB_APP_SLUG: str = "veltro-dev"
     GITHUB_PRIVATE_KEY: str
 
-    CLAUDE_API_KEY: str
     SECRET_KEY: str
     ENCRYPTION_KEY: str
     GEMINI_API_KEY: Optional[str] = None

@@ -227,12 +227,14 @@
   }
 }
 
-/* Hide scrollbar but keep scrolling functional */
-html {
+/* Hide scrollbar but keep scrolling functional — applied globally */
+html,
+* {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge legacy */
 }
 
-html::-webkit-scrollbar {
+html::-webkit-scrollbar,
+*::-webkit-scrollbar {
   display: none; /* Chrome, Safari, newer Edge */
 }

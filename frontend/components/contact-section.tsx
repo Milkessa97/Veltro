@@ -4,8 +4,9 @@ import { useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { SendIcon, CheckIcon } from "./LandingPage/icons"
-import { Github, Twitter, Star, ArrowRight, MessageSquareHeart, Sparkles, User } from "lucide-react"
+import { Github, Twitter, Star, ArrowRight, MessageSquareHeart, Sparkles, User, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { sendContactEmailAction, sendFeedbackEmailAction } from "@/app/actions/email"
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 
@@ -64,9 +65,12 @@ function FeedbackPanel() {
   const [hover, setHover] = useState(0)
   const [name, setName] = useState("")
   const [role, setRole] = useState("")
+  const [email, setEmail] = useState("")
   const [quote, setQuote] = useState("")
   const [allowPublic, setAllowPublic] = useState(true)
   const [submitted, setSubmitted] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
   const [step, setStep] = useState<"rating" | "form">("rating")
 
   const label = RATING_LABELS[hover || rating]
@@ -77,11 +81,29 @@ function FeedbackPanel() {
     setTimeout(() => setStep("form"), 300)
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // In a real app you'd POST to an API; for now we store locally
-    // and you can wire it to Formspree / email / Supabase later
-    setSubmitted(true)
+    setIsSending(true)
+    setErrorMsg("")
+    try {
+      const result = await sendFeedbackEmailAction({
+        rating,
+        name,
+        role,
+        email,
+        quote,
+        allowPublic,
+      })
+      if (result.success) {
+        setSubmitted(true)
+      } else {
+        setErrorMsg(result.error || "Failed to send feedback. Please check your setup.")
+      }
+    } catch (err: any) {
+      setErrorMsg("Failed to send feedback. Please try again.")
+    } finally {
+      setIsSending(false)
+    }
   }
 
   if (submitted) {
@@ -166,6 +188,7 @@ function FeedbackPanel() {
               <input
                 id="fb-name"
                 type="text"
+                disabled={isSending}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jane Smith"
@@ -179,6 +202,7 @@ function FeedbackPanel() {
               <input
                 id="fb-role"
                 type="text"
+                disabled={isSending}
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="Eng Lead @ Acme"
@@ -188,12 +212,28 @@ function FeedbackPanel() {
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <label htmlFor="fb-email" className="text-xs font-medium text-foreground">
+              Your email <span className="text-muted-foreground/50">(optional — to receive a thank you note)</span>
+            </label>
+            <input
+              id="fb-email"
+              type="email"
+              disabled={isSending}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <label htmlFor="fb-quote" className="text-xs font-medium text-foreground">
               A few words <span className="text-muted-foreground/50">(optional — but hugely appreciated!)</span>
             </label>
             <textarea
               id="fb-quote"
               rows={3}
+              disabled={isSending}
               value={quote}
               onChange={(e) => setQuote(e.target.value)}
               placeholder={
@@ -214,6 +254,7 @@ function FeedbackPanel() {
             >
               <input
                 type="checkbox"
+                disabled={isSending}
                 checked={allowPublic}
                 onChange={(e) => setAllowPublic(e.target.checked)}
                 className="mt-0.5 h-3.5 w-3.5 rounded accent-primary"
@@ -224,12 +265,21 @@ function FeedbackPanel() {
             </motion.label>
           )}
 
+          {errorMsg && (
+            <p className="text-red-500 text-xs mt-1 text-center font-medium">{errorMsg}</p>
+          )}
+
           <Button
             type="submit"
+            disabled={isSending}
             className="mt-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            <MessageSquareHeart className="h-4 w-4" />
-            Submit feedback
+            {isSending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <MessageSquareHeart className="h-4 w-4" />
+            )}
+            {isSending ? "Sending..." : "Submit feedback"}
           </Button>
         </motion.form>
       )}
@@ -245,6 +295,8 @@ function ContactPanel() {
   const [email, setEmail] = useState("")
   const [message, setMessage] = useState("")
   const [submitted, setSubmitted] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
 
   const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = cardRef.current?.getBoundingClientRect()
@@ -256,10 +308,23 @@ function ContactPanel() {
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !message) return
-    setSubmitted(true)
+    setIsSending(true)
+    setErrorMsg("")
+    try {
+      const result = await sendContactEmailAction({ email, message })
+      if (result.success) {
+        setSubmitted(true)
+      } else {
+        setErrorMsg(result.error || "Failed to send message. Please check your setup.")
+      }
+    } catch (err: any) {
+      setErrorMsg("Failed to send message. Please try again.")
+    } finally {
+      setIsSending(false)
+    }
   }
 
   return (
@@ -309,6 +374,7 @@ function ContactPanel() {
               id="contact-email"
               type="email"
               required
+              disabled={isSending}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
@@ -323,6 +389,7 @@ function ContactPanel() {
             <textarea
               id="contact-message"
               required
+              disabled={isSending}
               rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -331,12 +398,22 @@ function ContactPanel() {
               className="w-full resize-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/60 focus:ring-1 focus:ring-primary/40"
             />
           </div>
+
+          {errorMsg && (
+            <p className="text-red-500 text-xs text-center font-medium">{errorMsg}</p>
+          )}
+
           <Button
             type="submit"
+            disabled={isSending}
             className="mt-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            <SendIcon className="h-4 w-4" />
-            Send message
+            {isSending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <SendIcon className="h-4 w-4" />
+            )}
+            {isSending ? "Sending..." : "Send message"}
           </Button>
         </form>
       )}

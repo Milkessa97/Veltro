@@ -12,14 +12,21 @@ import { AnimatedSection } from "@/components/animated-section"
 import VeltroLogoAnimation from "@/components/veltro-logo-animation"
 import { LoadingScreen } from "@/components/loading-screen"
 
+const HAS_LOADED_KEY = "veltro_landing_loaded"
+
 export default function LandingPage() {
-  const [loading, setLoading] = useState(true)
-  const [pageReady, setPageReady] = useState(false)
+  // Skip loading screen if user has already visited this session
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true
+    return sessionStorage.getItem(HAS_LOADED_KEY) !== "1"
+  })
+  const [pageReady, setPageReady] = useState(!loading)
 
   // Signal that the page has been fully painted using two rAF cycles.
-  // This ensures the browser has committed at least one frame before we
-  // allow the loading screen to dismiss.
+  // Only needed when we're actually showing the loading screen.
   useEffect(() => {
+    if (!loading) return
+
     let raf2: number
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => setPageReady(true))
@@ -28,15 +35,25 @@ export default function LandingPage() {
       cancelAnimationFrame(raf1)
       cancelAnimationFrame(raf2)
     }
-  }, [])
+  }, [loading])
 
+  // Persist the "already loaded" flag once the loading screen finishes
+  const handleLoadingComplete = () => {
+    setLoading(false)
+    try {
+      sessionStorage.setItem(HAS_LOADED_KEY, "1")
+    } catch {
+      // sessionStorage can throw in restrictive environments (private mode, etc.)
+      // failing silently just means the loading screen may show again — non-fatal
+    }
+  }
 
   return (
     <>
       <AnimatePresence mode="wait">
         {loading && (
           <LoadingScreen
-            onComplete={() => setLoading(false)}
+            onComplete={handleLoadingComplete}
             isPageReady={pageReady}
           />
         )}
@@ -62,7 +79,6 @@ export default function LandingPage() {
           <main className="max-w-screen mx-auto relative">
             <HeroSection />
 
-            {/* Dashboard preview — fluid, in-flow */}
             <div className="relative z-30 flex justify-start xl:justify-center w-full max-w-[1320px] mx-auto px-6 md:px-8">
               <AnimatedSection>
                 <div
