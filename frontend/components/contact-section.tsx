@@ -425,7 +425,14 @@ function ContactPanel() {
 
 export function ContactSection() {
   return (
-    <section id="contact-section" className="w-full px-5">
+    <section id="contact-section" className="w-full px-5 pb-24 md:pb-36 relative isolate">
+      {/* Background glow at the bottom, fading as it goes upward to blend with CTA Section */}
+      <div className="absolute inset-x-0 bottom-[1.65rem] h-[300px] pointer-events-none -z-10 overflow-hidden select-none">
+        {/* Glow blob matching CTA styling */}
+        <div className="absolute bottom-[-20px] left-1/2 -translate-x-1/2 w-[300px] md:w-[600px] h-[180px] rounded-full bg-primary/10 blur-[80px]" />
+        {/* Fading dark gradient mask going upwards */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background/85 via-background/70 to-transparent" />
+      </div>
 
       {/* ── Header ── */}
       <div className="max-w-[720px] mx-auto py-8 md:py-14 flex flex-col items-center gap-3 text-center">

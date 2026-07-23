@@ -1,6 +1,16 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartTooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts"
 import Link from "next/link"
 import {
   LayoutDashboard,
@@ -29,6 +39,12 @@ import {
   Star,
   BarChart3,
   Timer,
+  Rocket,
+  Hourglass,
+  CheckCircle2,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -205,6 +221,389 @@ function SubSection({ id, title, children }: { id: string; title: string; childr
   )
 }
 
+// ─── Preview Components ────────────────────────────────────────────────────────
+
+function PreviewFrame({ children, label = "Preview" }: { children: React.ReactNode; label?: string }) {
+  return (
+    <div className="mt-6 rounded-2xl border border-white/10 bg-[#0d0d13] overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/8 bg-white/[0.02]">
+        <span className="w-2 h-2 rounded-full bg-indigo-500" />
+        <span className="text-[11px] font-semibold text-white/40 uppercase tracking-widest">{label}</span>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  )
+}
+
+// ── 1: KPI Cards ──────────────────────────────────────────────────────────────
+const mockKpis = [
+  { icon: Clock,    label: "Avg PR Cycle Time",    value: "18.4h", subtitle: "Open → merge, all merged PRs",              sentiment: "good" as const },
+  { icon: Timer,    label: "Time to First Review",  value: "4.2h",  subtitle: "Open → first reviewer activity",            sentiment: "good" as const },
+  { icon: Hourglass,label: "Avg Open PR Age",       value: "51.3h", subtitle: "How long open PRs have been waiting",       sentiment: "warn" as const },
+  { icon: Rocket,   label: "Deploy Frequency",      value: "3.1/wk",subtitle: "Merged PRs per week over 30d",              sentiment: "good" as const },
+]
+
+function DemoKPICards() {
+  return (
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+      {mockKpis.map((kpi) => {
+        const Icon = kpi.icon
+        const iconClass =
+          kpi.sentiment === "good"
+            ? "bg-emerald-900/30 text-emerald-400"
+            : "bg-amber-900/30 text-amber-400"
+        return (
+          <div key={kpi.label} className="p-4 rounded-xl bg-[#0F0F12] border border-white/8">
+            <div className={cn("inline-flex p-2 rounded-lg mb-3", iconClass)}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <p className="text-xs text-gray-400 truncate">{kpi.label}</p>
+            <p className="text-2xl font-semibold text-white mt-1">{kpi.value}</p>
+            <p className="text-[11px] text-gray-500 mt-1">{kpi.subtitle}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── 2: Cycle Time & Review Latency Trend Chart ────────────────────────────────
+const mockTrendData = [
+  { week: "Jun 9",  avgCycleTime: 32.1, avgReviewLatency: 9.4  },
+  { week: "Jun 16", avgCycleTime: 28.5, avgReviewLatency: 7.8  },
+  { week: "Jun 23", avgCycleTime: 24.0, avgReviewLatency: 6.2  },
+  { week: "Jun 30", avgCycleTime: 21.3, avgReviewLatency: 5.5  },
+  { week: "Jul 7",  avgCycleTime: 19.8, avgReviewLatency: 4.9  },
+  { week: "Jul 14", avgCycleTime: 18.4, avgReviewLatency: 4.2  },
+]
+
+function DemoCycleChart() {
+  return (
+    <div className="bg-[#0F0F12] rounded-xl border border-white/8 p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <BarChart3 className="w-4 h-4 text-gray-400" />
+        <span className="text-sm font-semibold text-white">Cycle Time &amp; Review Latency Trends</span>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={mockTrendData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+          <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+          <YAxis tickFormatter={(v) => `${v}h`} tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} width={35} />
+          <RechartTooltip
+            contentStyle={{ background: "#0F0F12", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "12px", color: "#fff" }}
+          />
+          <Legend iconType="plainline" iconSize={12} wrapperStyle={{ fontSize: "11px", paddingTop: "8px", color: "#9ca3af" }} />
+          <Line type="monotone" dataKey="avgCycleTime" name="Avg Cycle Time" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+          <Line type="monotone" dataKey="avgReviewLatency" name="Time to First Review" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ── 3: Contributor Activity (bars + table) ────────────────────────────────────
+const mockContributors = [
+  { name: "sarah-k",    avatar: "S", opened: 12, reviewed: 18, cycle: "14.2h", activity: 30 },
+  { name: "jdoe",       avatar: "J", opened: 9,  reviewed: 11, cycle: "22.1h", activity: 20 },
+  { name: "alex-m",     avatar: "A", opened: 7,  reviewed: 8,  cycle: "19.8h", activity: 15 },
+  { name: "priya-s",    avatar: "P", opened: 5,  reviewed: 6,  cycle: "31.0h", activity: 11 },
+  { name: "marco-b",    avatar: "M", opened: 3,  reviewed: 4,  cycle: "28.5h", activity: 7  },
+]
+const maxActivity = 30
+
+function DemoContributorBars() {
+  return (
+    <div className="bg-[#0F0F12] rounded-xl border border-white/8 p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Users2 className="w-4 h-4 text-gray-400" />
+        <span className="text-sm font-semibold text-white">Contributor Activity</span>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-3">
+          {mockContributors.map((c) => (
+            <div key={c.name} className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0">{c.avatar}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-gray-100 truncate">@{c.name}</span>
+                  <span className="text-xs text-gray-400">{c.activity}</span>
+                </div>
+                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-zinc-100 rounded-full" style={{ width: `${(c.activity / maxActivity) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-[11px] uppercase tracking-wider text-gray-500">
+                <th className="font-medium pb-2">Contributor</th>
+                <th className="font-medium pb-2 text-right">Opened</th>
+                <th className="font-medium pb-2 text-right">Reviewed</th>
+                <th className="font-medium pb-2 text-right">Avg Cycle</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mockContributors.map((c) => (
+                <tr key={c.name} className="border-t border-zinc-800">
+                  <td className="py-2 text-xs text-gray-100">@{c.name}</td>
+                  <td className="py-2 text-right text-xs text-gray-300">{c.opened}</td>
+                  <td className="py-2 text-right text-xs text-gray-300">{c.reviewed}</td>
+                  <td className="py-2 text-right text-xs text-gray-300">{c.cycle}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 4: PR Timeline bars ────────────────────────────────────────────────────────
+const mockPRs = [
+  { number: 247, title: "feat: add webhook retry logic",       author: "sarah-k", state: "merged" as const, waiting: 15, review: 28, merge: 4 },
+  { number: 251, title: "fix: resolve race condition in sync", author: "jdoe",    state: "merged" as const, waiting: 6,  review: 12, merge: 2 },
+  { number: 255, title: "chore: upgrade Gemini SDK",           author: "alex-m",  state: "open"   as const, waiting: 39, review: 0,  merge: 0 },
+  { number: 258, title: "feat: bottleneck score chart",        author: "priya-s", state: "merged" as const, waiting: 3,  review: 8,  merge: 1 },
+]
+const stateDot: Record<string, string> = {
+  open: "bg-violet-500",
+  merged: "bg-zinc-500",
+  closed: "bg-red-500",
+}
+
+function DemoPRTimeline() {
+  return (
+    <div className="bg-[#0F0F12] rounded-xl border border-white/8 overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/8">
+        <GitPullRequest className="w-4 h-4 text-gray-400" />
+        <span className="text-sm font-semibold text-white">PR Timeline</span>
+        <div className="ml-auto flex items-center gap-3 text-[11px] text-gray-500">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-violet-300/60 inline-block" /> Waiting</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block" /> In Review</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-600 inline-block" /> Ready/Merge</span>
+        </div>
+      </div>
+      <div className="divide-y divide-white/6">
+        {mockPRs.map((pr) => {
+          const total = pr.waiting + pr.review + pr.merge || 1
+          const wPct = (pr.waiting / total) * 100
+          const rPct = (pr.review  / total) * 100
+          const mPct = (pr.merge   / total) * 100
+          return (
+            <div key={pr.number} className="px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn("w-2 h-2 rounded-full flex-shrink-0", stateDot[pr.state])} />
+                <span className="text-xs font-medium text-gray-100 truncate flex-1">{pr.title}</span>
+                <span className="text-[11px] text-gray-500 flex-shrink-0">#{pr.number}</span>
+                <span className="text-[11px] text-gray-500 flex-shrink-0">@{pr.author}</span>
+              </div>
+              <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
+                {wPct > 0 && <div className="bg-violet-300/60 rounded-full" style={{ width: `${wPct}%` }} />}
+                {rPct > 0 && <div className="bg-violet-500 rounded-full" style={{ width: `${rPct}%` }} />}
+                {mPct > 0 && <div className="bg-indigo-600 rounded-full" style={{ width: `${mPct}%` }} />}
+                {pr.state === "open" && <div className="flex-1 bg-violet-300/20 rounded-full" />}
+              </div>
+              <div className="flex gap-4 mt-1 text-[10px] text-gray-500">
+                {pr.waiting > 0 && <span>{pr.waiting}h waiting</span>}
+                {pr.review  > 0 && <span>{pr.review}h in review</span>}
+                {pr.merge   > 0 && <span>{pr.merge}h merge</span>}
+                {pr.state === "open" && <span className="text-violet-400">still open</span>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── 5: Contributors Table ──────────────────────────────────────────────────────
+const mockContribRows = [
+  { name: "sarah-k",  avatar: "S", opened: 12, reviewed: 18, cycle: "14.2h", bottleneck: null },
+  { name: "jdoe",     avatar: "J", opened: 9,  reviewed: 4,  cycle: "22.1h", bottleneck: "review" },
+  { name: "alex-m",   avatar: "A", opened: 7,  reviewed: 8,  cycle: "19.8h", bottleneck: null },
+  { name: "marco-b",  avatar: "M", opened: 6,  reviewed: 2,  cycle: "68.0h", bottleneck: "merge" },
+]
+
+function DemoContribTable() {
+  return (
+    <div className="bg-[#0F0F12] rounded-xl border border-white/8 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-white/8">
+            {["Contributor", "PRs Opened", "PRs Reviewed", "Avg Cycle", "Status"].map((h) => (
+              <th key={h} className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/6">
+          {mockContribRows.map((c) => (
+            <tr key={c.name} className={cn("transition-colors", c.bottleneck ? "bg-amber-500/[0.03]" : "")}>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-[11px] font-bold flex-shrink-0">{c.avatar}</div>
+                  <span className="text-xs font-medium text-gray-100">@{c.name}</span>
+                </div>
+              </td>
+              <td className="px-4 py-3 text-xs text-gray-300">{c.opened}</td>
+              <td className="px-4 py-3 text-xs text-gray-300">{c.reviewed}</td>
+              <td className="px-4 py-3 text-xs text-gray-300">{c.cycle}</td>
+              <td className="px-4 py-3">
+                {c.bottleneck === "review" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-900/30 text-amber-400">Review bottleneck</span>
+                )}
+                {c.bottleneck === "merge" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-900/30 text-red-400">Merge bottleneck</span>
+                )}
+                {!c.bottleneck && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-900/30 text-emerald-400">Healthy</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ── 6: Bottleneck Score ring ───────────────────────────────────────────────────
+function DemoBottleneck() {
+  const score = 42
+  const r = 30
+  const circumference = 2 * Math.PI * r
+  const offset = circumference - (score / 100) * circumference
+  return (
+    <div className="bg-[#0F0F12] rounded-xl border border-white/8 p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <AlertTriangle className="w-4 h-4 text-gray-400" />
+        <span className="text-sm font-semibold text-white">Bottleneck Score</span>
+      </div>
+      <div className="flex items-center gap-6">
+        <svg className="w-20 h-20 -rotate-90 flex-shrink-0" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r={r} strokeWidth="7" className="stroke-zinc-800" fill="none" />
+          <circle cx="40" cy="40" r={r} strokeWidth="7" fill="none" className="stroke-amber-400"
+            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
+        </svg>
+        <div>
+          <p className="text-3xl font-bold text-amber-400 tabular-nums">{score}.0%</p>
+          <p className="text-xs text-gray-400 mt-1">Moderate — some PRs need attention</p>
+          <p className="text-[11px] text-gray-500 mt-2">6 open PRs · 3 unreviewed</p>
+        </div>
+      </div>
+      <div className="mt-4 pt-4 border-t border-white/8 space-y-3">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Review Coverage</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg bg-indigo-900/20 p-3">
+            <p className="text-lg font-bold text-indigo-400 tabular-nums">14</p>
+            <p className="text-[11px] text-indigo-400/80 mt-0.5">Assigned reviews</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">via CODEOWNERS / manual</p>
+          </div>
+          <div className="rounded-lg bg-teal-900/20 p-3">
+            <p className="text-lg font-bold text-teal-400 tabular-nums">9</p>
+            <p className="text-[11px] text-teal-400/80 mt-0.5">Proactive reviews</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">no assignment needed</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 7: AI Digest card ─────────────────────────────────────────────────────────
+const mockDigestText = `This week your team merged 11 pull requests with an average cycle time of 18.4 hours — a 22% improvement over the previous period. Three PRs spent over 48 hours waiting for review, with #255 currently sitting open for 39 hours.
+
+@sarah-k led review activity with 18 submissions this month, while @marco-b's PRs are averaging 68 hours to merge — worth a quick check-in on branch scope. No severe review bottlenecks detected this cycle.`
+
+function DemoDigestCard() {
+  const [expanded, setExpanded] = useState(true)
+  return (
+    <div className="bg-[#0F0F12] rounded-xl border border-white/8 overflow-hidden">
+      <div className="flex items-start justify-between gap-3 p-5 cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-white">Jun 30 – Jul 7, 2025</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-900/30 text-blue-400">
+              <Sparkles className="w-2.5 h-2.5" /> Weekly Summary
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Generated 2h ago</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button type="button" className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium text-gray-400 hover:bg-white/5 transition-colors">
+            <RefreshCw className="w-3.5 h-3.5" /> Regenerate
+          </button>
+          {expanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        </div>
+      </div>
+      {expanded && (
+        <div className="px-5 pb-5 border-t border-white/8 pt-4 text-sm leading-relaxed text-gray-300 whitespace-pre-line">
+          {mockDigestText}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 8: Sync Log rows ──────────────────────────────────────────────────────────
+const mockLogs = [
+  { status: "completed", trigger: "manual",    prs: 47, reviews: 112, commits: 203, duration: "18s",  started: "Jul 7, 2025, 09:14 AM", error: null },
+  { status: "running",   trigger: "webhook",   prs: 0,  reviews: 0,   commits: 0,   duration: "—",    started: "Jul 7, 2025, 11:32 AM", error: null },
+  { status: "failed",    trigger: "scheduled", prs: 0,  reviews: 0,   commits: 0,   duration: "3s",   started: "Jul 6, 2025, 08:00 AM", error: "GitHub rate limit exceeded. Retry in 60 s." },
+]
+
+const syncStatusCfg = {
+  completed: { label: "Completed", iconClass: "text-emerald-400", badgeClass: "bg-emerald-900/30 text-emerald-400" },
+  running:   { label: "Running",   iconClass: "text-blue-400 animate-spin", badgeClass: "bg-blue-900/30 text-blue-400" },
+  failed:    { label: "Failed",    iconClass: "text-red-400",     badgeClass: "bg-red-900/30 text-red-400" },
+}
+const triggerLabel: Record<string, string> = { manual: "Manual", webhook: "Webhook", scheduled: "Scheduled" }
+
+function DemoSyncLogs() {
+  return (
+    <div className="bg-[#0F0F12] rounded-xl border border-white/8 divide-y divide-white/6 overflow-hidden">
+      {mockLogs.map((log, i) => {
+        const cfg = syncStatusCfg[log.status as keyof typeof syncStatusCfg]
+        const StatusIcon = log.status === "completed" ? CheckCircle2 : log.status === "running" ? Loader2 : AlertTriangle
+        return (
+          <div key={i} className="p-4">
+            <div className="flex items-start gap-3">
+              <div className={cn("mt-0.5 flex-shrink-0", cfg.iconClass)}>
+                <StatusIcon className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold", cfg.badgeClass)}>{cfg.label}</span>
+                  <span className="text-[11px] text-gray-500">{log.started}</span>
+                  <span className="ml-auto text-[11px] px-2 py-0.5 rounded bg-white/5 text-gray-400">{triggerLabel[log.trigger]}</span>
+                </div>
+                {log.status !== "running" && !log.error && (
+                  <div className="flex gap-4 mt-2 text-[11px] text-gray-400">
+                    <span>{log.prs} PRs</span>
+                    <span>{log.reviews} reviews</span>
+                    <span>{log.commits} commits</span>
+                    <span>{log.duration}</span>
+                  </div>
+                )}
+                {log.error && (
+                  <p className="mt-2 text-[11px] text-red-400 bg-red-900/10 rounded px-2 py-1">{log.error}</p>
+                )}
+                {log.status === "running" && (
+                  <p className="mt-2 text-[11px] text-blue-400">Fetching PR and review data from GitHub…</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function Documentation() {
@@ -256,9 +655,9 @@ export default function Documentation() {
             <span className="hidden sm:inline">Home</span>
           </Link>
         </div>
-        <div className="flex items-center gap-2">
-          <img src="/veltro-logo-dark-bg.svg" alt="Veltro" className="h-7 w-auto" />
-          <span className="text-white/30 text-sm hidden sm:inline">Documentation</span>
+        <div className="flex items-end gap-2">
+          <img src="/veltro-logo-dark-bg.svg" alt="Veltro" className="h-7 mb-0.5 w-auto" />
+          <span className="text-white/40 text-md mt-2 hidden sm:inline">Documentation</span>
         </div>
         <div className="w-[120px] hidden sm:block" />
       </header>
@@ -401,8 +800,11 @@ export default function Documentation() {
 
             <SubSection id="overview-metrics" title="Overview Metrics">
               <p className="text-white/60 leading-relaxed mb-6">
-                The Overview page displays six headline metric cards and two visualization panels. Every metric is calculated from raw PR timestamps in the database, scoped to your selected date range (7d, 30d, or 90d).
+                The Overview page displays <strong className="text-white">four headline metric cards</strong> and <strong className="text-white">four visualization panels</strong>. Every metric is calculated from raw PR timestamps in the database, scoped to your selected date range (7d, 30d, or 90d).
               </p>
+              <PreviewFrame>
+                <DemoKPICards />
+              </PreviewFrame>
             </SubSection>
 
             <SubSection id="cycle-time" title="Cycle Time">
@@ -436,45 +838,81 @@ export default function Documentation() {
               </Callout>
             </SubSection>
 
-            <SubSection id="open-prs" title="Open PRs">
+            <SubSection id="open-prs" title="Avg Open PR Age">
               <p className="text-white/60 leading-relaxed mb-4">
-                The <strong className="text-white">Open PRs</strong> card shows all currently open pull requests in your repository with an age indicator showing how long each has been open. Color-coded age helps identify stale PRs quickly.
+                The <strong className="text-white">Avg Open PR Age</strong> card shows the average time currently open pull requests have been waiting — from when they were opened to now. It is a leading indicator of accumulated review debt.
               </p>
-              <div className="flex flex-wrap gap-3 my-4">
-                <div className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full bg-emerald-400 flex-shrink-0" /><span className="text-white/60">Under 24h — Freshly opened</span></div>
-                <div className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0" /><span className="text-white/60">1–3 days — Getting stale</span></div>
-                <div className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full bg-red-400 flex-shrink-0" /><span className="text-white/60">Over 3 days — Needs attention</span></div>
+              <MetricCard
+                icon={Timer}
+                label="Avg Open PR Age"
+                formula="AVG(NOW() − opened_at) across all currently open PRs"
+                color="bg-amber-500/15 text-amber-300"
+              />
+              <div className="mt-4 text-sm text-white/60 space-y-2">
+                <p><strong className="text-white">What's healthy?</strong> Under 48 hours is considered good. Over 48 hours signals PRs are sitting idle and may need prioritisation.</p>
+                <p>Only <Badge variant="indigo">open</Badge> pull requests are included. Merged and closed PRs are excluded from this calculation.</p>
               </div>
             </SubSection>
 
             <SubSection id="deploy-frequency" title="Deploy Frequency">
               <p className="text-white/60 leading-relaxed mb-4">
-                <strong className="text-white">Merged PRs This Week</strong> acts as a deploy frequency proxy — it counts how many pull requests were merged into your main branch in the past 7 days.
+                <strong className="text-white">Deploy Frequency</strong> is a throughput proxy — it shows the average number of pull requests merged per week over your selected date range. It is displayed as <Badge>N.N/wk</Badge>.
               </p>
               <MetricCard
                 icon={GitMerge}
                 label="Deploy Frequency"
-                formula="COUNT(pull_requests) WHERE state = 'merged' AND merged_at >= NOW() − 7 days"
+                formula="COUNT(merged PRs in date range) ÷ (date range in days ÷ 7)"
                 color="bg-emerald-500/15 text-emerald-300"
               />
+              <div className="mt-4 text-sm text-white/60">
+                <p><strong className="text-white">What's healthy?</strong> Two or more merges per week is considered a good cadence for most teams. The metric respects the 7d, 30d, and 90d selectors — all three windows are calculated as a weekly rate.</p>
+              </div>
             </SubSection>
 
-            <SubSection id="trend-chart" title="Cycle Time Trend Chart">
+            <SubSection id="trend-chart" title="Cycle Time & Review Latency Trend Chart">
               <p className="text-white/60 leading-relaxed mb-4">
-                The trend chart plots <strong className="text-white">average cycle time per week</strong> over your selected date range. Each data point represents the mean time to merge for all PRs merged in that calendar week.
+                The trend chart plots two weekly averages over your selected date range, overlaid as separate lines:
               </p>
+              <div className="flex flex-col gap-3 my-4">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="w-4 h-0.5 bg-violet-500 flex-shrink-0 rounded-full" />
+                  <span className="text-white font-medium">Avg Cycle Time</span>
+                  <span className="text-white/55">— mean open-to-merge time for PRs merged that week</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="w-4 h-0.5 bg-blue-500 flex-shrink-0 rounded-full" />
+                  <span className="text-white font-medium">Time to First Review</span>
+                  <span className="text-white/55">— mean time from PR open to first reviewer activity that week</span>
+                </div>
+              </div>
               <p className="text-white/60 leading-relaxed">
-                Use the <Badge>7d</Badge>, <Badge>30d</Badge>, <Badge>90d</Badge> date selectors at the top of the dashboard to change the visible window. The chart and all metric cards update simultaneously.
+                Use the <Badge>7d</Badge>, <Badge>30d</Badge>, <Badge>90d</Badge> date selectors at the top of the dashboard to change the visible window. Both lines and all metric cards update simultaneously.
               </p>
+              <PreviewFrame>
+                <DemoCycleChart />
+              </PreviewFrame>
             </SubSection>
 
-            <SubSection id="contributor-rings" title="Contributor Activity Visualization">
+            <SubSection id="contributor-rings" title="Contributor Activity">
               <p className="text-white/60 leading-relaxed mb-4">
-                The radial ring chart visualizes relative PR authorship across contributors. Each ring segment represents a contributor's share of total pull requests in the selected date range.
+                The Contributor Activity panel shows the <strong className="text-white">top 5 contributors</strong> by combined PR authorship and review activity for the selected date range. It is split into two parts:
               </p>
-              <p className="text-white/60 leading-relaxed">
-                Hover over segments to see the contributor's name, PR count, and percentage contribution. Large imbalances (one person authoring 80%+ of PRs) can signal a bus factor risk.
-              </p>
+              <div className="space-y-3 my-4">
+                {[
+                  { label: "Activity Bars", desc: "Horizontal bars ranked by total activity (PRs opened + PRs reviewed). The longest bar is the most active contributor in the period." },
+                  { label: "Summary Table", desc: "Columns show PRs Opened, PRs Reviewed, and Avg Cycle Time for each contributor. Useful for spotting contributors who review heavily but author little, or vice versa." },
+                ].map((item) => (
+                  <div key={item.label} className="flex gap-4 p-4 rounded-xl border border-white/8 bg-white/[0.02]">
+                    <div>
+                      <p className="text-sm font-semibold text-white mb-1">{item.label}</p>
+                      <p className="text-sm text-white/55">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <PreviewFrame>
+                <DemoContributorBars />
+              </PreviewFrame>
             </SubSection>
           </Section>
 
@@ -495,22 +933,22 @@ export default function Documentation() {
               <div className="space-y-4">
                 {[
                   {
-                    color: "bg-blue-500",
+                    color: "bg-violet-300 dark:bg-violet-900/60",
                     label: "Waiting for Review",
                     formula: "first_review_at − opened_at",
                     desc: "Time the PR sat open before anyone submitted a review. This is where review latency lives.",
                   },
                   {
-                    color: "bg-amber-500",
-                    label: "Under Review",
-                    formula: "merged_at − first_review_at",
-                    desc: "Time between first review submission and merge. This includes back-and-forth, change requests, and re-reviews.",
+                    color: "bg-violet-500",
+                    label: "In Review",
+                    formula: "last_review_event_at − first_review_at",
+                    desc: "Time between the first review submission and the end of review activity. This includes back-and-forth, change requests, and re-reviews.",
                   },
                   {
-                    color: "bg-emerald-500",
-                    label: "Merging",
-                    formula: "merged_at − last_approved_at",
-                    desc: "Final short period between last approval and the actual merge commit. Usually seconds to minutes.",
+                    color: "bg-indigo-600",
+                    label: "Ready / Merge",
+                    formula: "merged_at − end_of_review",
+                    desc: "Tail period between the end of review activity and the actual merge commit. Typically short — minutes to a few hours.",
                   },
                 ].map((s) => (
                   <div key={s.label} className="flex gap-4 p-4 rounded-xl border border-white/8 bg-white/[0.02]">
@@ -529,6 +967,9 @@ export default function Documentation() {
               <Callout type="info">
                 PRs that are still open show an extended <strong className="text-white">Waiting</strong> segment stretching to <code className="text-xs bg-white/8 px-1.5 py-0.5 rounded">NOW()</code>. Closed-without-merge PRs are excluded from the timeline.
               </Callout>
+              <PreviewFrame>
+                <DemoPRTimeline />
+              </PreviewFrame>
             </SubSection>
           </Section>
 
@@ -564,21 +1005,35 @@ export default function Documentation() {
                   </tbody>
                 </table>
               </div>
+              <PreviewFrame>
+                <DemoContribTable />
+              </PreviewFrame>
             </SubSection>
 
             <SubSection id="bottleneck-detection" title="Bottleneck Detection">
               <p className="text-white/60 leading-relaxed mb-4">
-                Veltro automatically flags contributors as bottlenecks when:
+                Veltro automatically flags contributors under two distinct rules. Expand any contributor row to see the exact reason:
               </p>
-              <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 mb-6">
-                <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-white/70">
-                  A contributor has <strong className="text-amber-300">3 or more pending review requests</strong> where the request was made <strong className="text-amber-300">more than 48 hours ago</strong> and the PR is still open.
+              <div className="space-y-3 mb-6">
+                <div className="flex items-start gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5">
+                  <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-white/70">
+                    <strong className="text-red-300">Merge bottleneck</strong> — the contributor's own PRs have an average cycle time over <strong className="text-red-300">60 hours</strong> and they opened more than <strong className="text-red-300">5 PRs</strong> in the period. Their work is landing slowly.
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-white/70">
+                    <strong className="text-amber-300">Review bottleneck</strong> — the contributor had <strong className="text-amber-300">3 or more formal review assignments</strong> (via CODEOWNERS or manual request) but completed fewer than <strong className="text-amber-300">50%</strong> of them. Unreviewed assignments block other contributors.
+                  </div>
                 </div>
               </div>
               <p className="text-white/60 leading-relaxed">
-                Bottlenecked contributors appear with a highlighted row and a warning badge. The logic accounts for teams that don't explicitly assign reviewers by also detecting contributors who frequently appear as reviewers across many open PRs simultaneously.
+                Contributors who only open PRs and are never assigned as reviewers are never flagged — they can't review their own work and may simply not be in a review rotation.
               </p>
+              <PreviewFrame>
+                <DemoBottleneck />
+              </PreviewFrame>
             </SubSection>
 
             <SubSection id="ai-bottleneck" title="AI Bottleneck Explanation">
@@ -617,6 +1072,9 @@ export default function Documentation() {
               <p className="text-white/60 leading-relaxed">
                 Digests are generated automatically every Monday at 08:00 UTC via a GitHub Actions cron job. You can also request a fresh digest manually at any time using the <strong className="text-white">Regenerate</strong> button.
               </p>
+              <PreviewFrame label="Live Preview — AI Digest">
+                <DemoDigestCard />
+              </PreviewFrame>
             </SubSection>
 
             <SubSection id="gemini-key" title="Setting Up Your Gemini API Key">
@@ -671,7 +1129,7 @@ export default function Documentation() {
 
             <SubSection id="digest-history" title="Digest History">
               <p className="text-white/60 leading-relaxed">
-                Every generated digest is saved and accessible in the <strong className="text-white">History</strong> tab on the AI Digests page. Up to 20 past digests are shown, ordered newest first. Each entry shows its generation timestamp, period coverage (e.g. "Jun 30 – Jul 7"), and the full generated text.
+                Every generated digest is saved automatically. Below the current digest, click the <strong className="text-white">View digest history</strong> toggle button to expand an inline list of all previous digests, ordered newest first. Each entry shows its generation timestamp, period coverage (e.g. "Jun 30 – Jul 7"), and the full generated text.
               </p>
             </SubSection>
           </Section>
@@ -711,6 +1169,9 @@ export default function Documentation() {
                 </table>
               </div>
             </SubSection>
+              <PreviewFrame>
+                <DemoSyncLogs />
+              </PreviewFrame>
 
             <SubSection id="sync-triggers" title="What Triggers a Sync">
               <p className="text-white/60 leading-relaxed mb-4">Repository data is kept current through two complementary mechanisms:</p>
@@ -795,7 +1256,7 @@ export default function Documentation() {
               <div className="flex items-center flex-wrap gap-2 my-6 text-sm font-mono">
                 {["users", "repositories", "pull_requests", "reviews / commits"].map((t, i, arr) => (
                   <>
-                    <span key={t} className="px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">{t}</span>
+                    <span key={t+i} className="px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">{t}</span>
                     {i < arr.length - 1 && <ChevronRight key={`arrow-${i}`} className="h-4 w-4 text-white/20" />}
                   </>
                 ))}
@@ -831,10 +1292,11 @@ export default function Documentation() {
               <p className="text-white/60 leading-relaxed mb-4">
                 From the Settings page you can configure:
               </p>
-              <div className="space-y-3">
+              <div className="space-y-3 mb-4">
                 {[
-                  { label: "Default Date Range", desc: "Sets the date window (7d, 30d, or 90d) that loads by default on the dashboard." },
                   { label: "Default Repository", desc: "The repository that is automatically selected when you open the dashboard." },
+                  { label: "Default Analysis Period", desc: "Sets the rolling date window (7 Days, 30 Days, or 90 Days) that loads by default on the dashboard." },
+                  { label: "Expand Digest Panel", desc: "When enabled, the AI digest section is always shown expanded when the page loads. Toggle it off to collapse it by default." },
                 ].map((item) => (
                   <div key={item.label} className="flex gap-4 p-4 rounded-xl border border-white/8 bg-white/[0.02]">
                     <div>
@@ -844,6 +1306,9 @@ export default function Documentation() {
                   </div>
                 ))}
               </div>
+              <Callout type="tip">
+                All preferences — including the Gemini API Key field — are saved together when you click <strong className="text-white">Save Settings</strong> at the bottom of the form.
+              </Callout>
             </SubSection>
           </Section>
 
