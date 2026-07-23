@@ -11,7 +11,6 @@ from app.schemas.repositories import RepositoryResponse
 from app.services import pull_requests as pr_service
 from app.schemas.pull_requests import PullRequestDetailResponse
 from app.schemas.metrics import RepoMetricsResponse, ContributorMetricsResponse, SyncLogResponse
-from app.models.sync_logs import SyncLog
 from typing import Optional
 
 router = APIRouter(prefix="/repos", tags=["Repositories"])

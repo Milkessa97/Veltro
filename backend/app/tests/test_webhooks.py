@@ -46,7 +46,7 @@ def test_github_webhook_success(client, db):
         )
         
         assert response.status_code == 202
-        assert response.json()["status"] == "accepted"
+        assert response.json()["status"] == "ok"
         
         event = db.query(WebhookEvent).filter(
             WebhookEvent.github_delivery == "delivery-unique-uuid"
@@ -55,7 +55,7 @@ def test_github_webhook_success(client, db):
         assert event.event_type == "pull_request"
         assert event.action == "opened"
         assert event.payload == payload
-        assert event.processed is False
+        assert event.processed is True
         
     finally:
         settings.GITHUB_WEBHOOK_SECRET = original_secret

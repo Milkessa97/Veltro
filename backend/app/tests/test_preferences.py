@@ -264,3 +264,71 @@ def test_partial_update_does_not_reset_is_onboarded(client: TestClient, db: Sess
     data = response.json()
     assert data["default_date_range_days"] == 7
     assert data["is_onboarded"]  # must not be reset
+
+def test_update_gemini_api_key(client: TestClient, db: Session):
+    user = create_test_user(db)
+
+    response = client.put(
+        "/preferences",
+        json={"gemini_api_key": "my-secret-key"},
+        headers=auth_headers(user),
+    )
+
+    assert response.status_code == 200
+
+    prefs = (
+        db.query(UserPreferences)
+        .filter(UserPreferences.user_id == user.id)
+        .first()
+    )
+
+    assert prefs.gemini_api_key is not None
+    assert prefs.gemini_api_key != "my-secret-key"  # should be encrypted
+
+def test_clear_gemini_api_key(client: TestClient, db: Session):
+    user = create_test_user(db)
+
+    client.put(
+        "/preferences",
+        json={"gemini_api_key": "my-secret-key"},
+        headers=auth_headers(user),
+    )
+
+    response = client.put(
+        "/preferences",
+        json={"gemini_api_key": ""},
+        headers=auth_headers(user),
+    )
+
+    assert response.status_code == 200
+
+    prefs = (
+        db.query(UserPreferences)
+        .filter(UserPreferences.user_id == user.id)
+        .first()
+    )
+
+    assert prefs.gemini_api_key is None
+
+def test_partial_update_does_not_clear_gemini_api_key(client: TestClient, db: Session):
+    user = create_test_user(db)
+
+    client.put(
+        "/preferences",
+        json={"gemini_api_key": "my-secret-key"},
+        headers=auth_headers(user),
+    )
+
+    client.put(
+        "/preferences",
+        json={"default_date_range_days": 7},
+        headers=auth_headers(user),
+    )
+
+    prefs = (
+        db.query(UserPreferences)
+        .filter(UserPreferences.user_id == user.id)
+        .first()
+    )
+
+    assert prefs.gemini_api_key is not None

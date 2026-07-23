@@ -13,17 +13,17 @@ The architecture prioritizes **zero-trust security**, **strict data isolation**,
 - **GitHub Apps Integration**: Enforcing fine-grained, repository-scoped access instead of broad account-wide OAuth scopes.
 - **Hybrid Data Processing**: Combining FastAPI's asynchronous routing with optimized raw SQL for complex temporal analytics and window functions.
 - **Encrypted Multi-Tenancy**: Utilizing Fernet symmetric encryption for token persistence and jti-based token blocklisting for stateless JWT revocation.
+- **Cascading AI Digest System**: Employing the google-genai SDK to query `gemini-3.5-flash` (with a transparent fallback to `gemini-3.5-flash-lite`) using either system or secure user-provided API keys.
 
 ---
-
-## 2. System Architecture Diagram
+## 2. System Architecture Diagram
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │                                   USER BROWSER                                   │
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │
-                   HTTPS / Cookie Auth   │  User Interactions
+                    HTTPS / Cookie Auth   │  User Interactions
                                          ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │                            FRONTEND (Next.js on Vercel)                          │
@@ -40,24 +40,23 @@ The architecture prioritizes **zero-trust security**, **strict data isolation**,
 │  - Models Layer (app/models/)        ── SQLAlchemy Database Models              │
 └──────────────┬─────────────────────────┬─────────────────────────┬───────────────┘
                │                         │                         │
-  Async SQL    │            HMAC-SHA256  │           Encrypted     │  Gemini 2.0
+  Async SQL    │            HMAC-SHA256  │           Encrypted     │  Gemini 3.5
   Queries      │            Webhooks     │           API Requests  │  Prompts
                ▼                         ▲                         ▼
 ┌───────────────────────────┐ ┌──────────┴──────────┐ ┌───────────────────────────┐
 │ DATABASE                  │ │ GITHUB PLATFORM     │ │ GOOGLE GEMINI API         │
 │ (PostgreSQL 15 on Render) │ │ - Apps & Webhooks   │ │ - gemini-3.5-flash        │
-│ - 10 Relational Tables    │ │ - REST & GraphQL API│ │ - User / Fallback Keys    │
+│ - 13 Relational Tables    │ │ - REST & GraphQL API│ │ - User / Fallback Keys    │
 │ - Fernet Encrypted Tokens │ └──────────▲──────────┘ └───────────────────────────┘
 │ - Token Blocklist         │            │
 └───────────────────────────┘            │ Scheduled Trigger (Monday 8AM UTC)
-                                         │ & CI/CD Pipelines
+                                         │ & Pings
                               ┌──────────┴──────────┐
                               │ GITHUB ACTIONS      │
                               │ - ci.yml            │
-                              │ - deploy.yml        │
                               │ - digest.yml        │
+                              │ - keep-render-alive │
                               └─────────────────────┘
-```
 
 ---
 
@@ -99,13 +98,13 @@ The architecture prioritizes **zero-trust security**, **strict data isolation**,
 
 ## 4. Request Lifecycle Traces
 
-### 4.1 Authenticated API Request (`GET /analytics/cycle-time`)
+### 4.1 Authenticated API Request (`GET /repos/{id}/metrics`)
 
 ```text
-[ Browser ] ──► (1) GET /api/analytics/cycle-time?repo_id=123 (Cookie: access_token=jwt...)
+[ Browser ] ──► (1) GET /api/repos/12345678-abcd-1234-abcd-123456789abc/metrics?days=30 (Cookie: access_token=jwt...)
      │
      ▼
-[ Next.js Proxy (Vercel) ] ──► (2) Rewrites path to https://backend/analytics/cycle-time
+[ Next.js Proxy (Vercel) ] ──► (2) Rewrites path to https://backend/repos/12345678-abcd-1234-abcd-123456789abc/metrics?days=30
      │
      ▼
 [ FastAPI Route Handler ] ──► (3) Invokes `get_current_user` dependency
@@ -115,13 +114,13 @@ The architecture prioritizes **zero-trust security**, **strict data isolation**,
      │                           └── Hydrate User model from DB
      │
      ▼
-[ Analytics Service ] ──► (4) Executes raw SQL via `db.execute(text(...))`
-     │                       ├── Filter by `repository_id` AND `user_id` (FK validation)
-     │                       ├── Calculate cycle times: EXTRACT(EPOCH FROM (merged_at - opened_at))
-     │                       └── Return aggregated P50/P90 buckets
+[ Pull Requests Service ] ──► (4) Executes raw SQL via `db.execute(text(...))` in `get_repo_metrics()`
+     │                       ├── Filter by `repository_id` (verifies ownership using Repository.user_id = User.id)
+     │                       ├── Calculate cycle times, review latency, sizes, and state distributions
+     │                       └── Return aggregated metrics
      │
      ▼
-[ FastAPI Serialization ] ──► (5) Pydantic validates response shape
+[ FastAPI Serialization ] ──► (5) Pydantic validates RepoMetricsResponse shape
      │
      ▼
 [ Browser ] ◄── (6) Receives JSON payload with HTTP 200 OK
@@ -174,19 +173,19 @@ if not hmac.compare_digest(expected_signature, request.headers.get("X-Hub-Signat
 Data isolation is strictly enforced via database relational constraints and backend dependency scoping:
 
 ```
-[ users ] ── (1:N) ──► [ user_repositories ] ── (N:1) ──► [ repositories ]
-                                                                 │
-                                                    ┌────────────┴────────────┐
-                                                    │ (1:N)                   │ (1:N)
-                                                    ▼                         ▼
-                                           [ pull_requests ]           [ digests ]
-                                                    │
-                                                    ▼ (1:N)
-                                               [ reviews ]
+[ users ] ── (1:N) ──► [ repositories ]
+                              │
+                 ┌────────────┴────────────┐
+                 │ (1:N)                   │ (1:N)
+                 ▼                         ▼
+        [ pull_requests ]           [ digests ]
+                 │
+                 ▼ (1:N)
+            [ reviews ]
 ```
 
 - All metrics endpoints accept a `repository_id`.
-- The backend verifies that the authenticated `user_id` possesses an active linkage in `user_repositories` for that `repository_id`.
+- The backend verifies that the authenticated `user_id` owns the repository by ensuring the `repositories.user_id` matches the authenticated `user_id` (or matches when retrieving list of user repositories).
 - Queries filter explicitly on validated `repository_id` foreign keys, preventing cross-tenant data leakage.
 
 ### 5.4 GitHub App Permission Scopes Requested
@@ -243,19 +242,19 @@ ON CONFLICT (github_pr_id) DO UPDATE SET
 | Component | Provider | Configuration |
 | :--- | :--- | :--- |
 | **Frontend** | Vercel | Next.js App Router, automatic edge deployments from `main` branch |
-| **Backend** | Render | FastAPI Web Service (Docker container), auto-deploy from `main` |
+| **Backend** | Render | FastAPI Web Service (Docker container), auto-deploy from `main` via Render-GitHub Integration |
 | **Database** | Render | PostgreSQL 15 Managed Instance with automated daily backups |
-| **CI/CD & Cron** | GitHub Actions | Workflows for testing, deployment notifications, and cron digests |
+| **CI/CD & Automation** | GitHub Actions | Workflows for continuous integration, pings (to keep Render alive), and weekly digests |
 
 ### 7.2 GitHub Actions Workflows
 
 1. **`ci.yml` (Continuous Integration)**
    - Triggers: On every Pull Request to `main`.
-   - Actions: Runs `ruff check .` for linting and `pytest` for unit/integration testing inside Docker container environments.
+   - Actions: Installs Python dependencies, runs `ruff check app` for linting, runs database migrations against test PostgreSQL service, and executes `pytest app/tests`.
 
-2. **`deploy.yml` (Continuous Deployment)**
-   - Triggers: On merge to `main`.
-   - Actions: Triggers Render build webhooks for the backend service and notifies Vercel deployment hooks.
+2. **`keep-render-alive.yml` (Render Keep-Alive)**
+   - Triggers: Scheduled cron (`*/10 * * * *` — every 10 minutes).
+   - Actions: Pings the Render backend service via `curl` to prevent the service from spinning down due to inactivity.
 
 3. **`digest.yml` (Weekly Cron Job)**
    - Triggers: Scheduled cron (`0 8 * * 1` — Mondays at 08:00 UTC).
@@ -263,14 +262,14 @@ ON CONFLICT (github_pr_id) DO UPDATE SET
      ```text
      GitHub Actions Cron (08:00 UTC Monday)
        │
-       ├── Send POST request to /api/digest/weekly/all
+       ├── Send GET request to /digest/weekly
        │   └── Authorization: Bearer <SERVICE_TOKEN>
        │
        ▼
      FastAPI Backend
-       ├── Query repositories with activity in past 7 days
-       ├── Aggregate weekly metrics (P50 cycle time, review latency, PR count)
-       ├── Prompt Gemini 2.0 API with structured metric context
+       ├── Receives call at /digest/weekly (configured as cron trigger URL)
+       ├── Builds weekly metrics payload
+       ├── Prompts Gemini 3.5 API with structured metric context
        ├── Persist generated summary into `digests` table
        └── Mark `is_stale = false`
      ```

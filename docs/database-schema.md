@@ -223,19 +223,19 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY`, Default: `gen_random_uuid()` | Internal repository identifier |
 | `user_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (users.id) ON DELETE CASCADE` | Owning Veltro user |
-| `github_id` | `INTEGER` | `NOT NULL` | GitHub's internal repository ID |
+| `github_id` | `INTEGER` | `NULLABLE` | GitHub's internal repository ID |
 | `owner` | `VARCHAR(255)` | `NOT NULL` | Repository owner/organization handle |
 | `name` | `VARCHAR(255)` | `NOT NULL` | Repository name |
 | `full_name` | `VARCHAR(511)` | `NOT NULL` | Full path (`owner/name`) |
 | `is_private` | `BOOLEAN` | `NOT NULL`, Default: `FALSE` | GitHub privacy flag |
 | `is_synced` | `BOOLEAN` | `NOT NULL`, Default: `FALSE` | Complete initial sync status |
-| `synced_at` | `TIMESTAMP` | `NULLABLE` | Last successful sync completion timestamp |
+| `synced_at` | `TIMESTAMP` | `NOT NULL`, Default: `NOW()` | Last successful sync completion timestamp |
 | `created_at` | `TIMESTAMP` | `NOT NULL`, Default: `NOW()` | Record creation timestamp |
 
 **Indexes & Constraints**:
 - `PRIMARY KEY (id)`
 - `INDEX ix_repositories_user_id ON repositories (user_id)`
-- `UNIQUE CONSTRAINT uq_repositories_github_user (github_id, user_id)`
+- `UNIQUE CONSTRAINT uq_github_id_user_id (github_id, user_id)`
 
 ---
 
@@ -246,16 +246,15 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY`, Default: `gen_random_uuid()` | Internal contributor identifier |
 | `repository_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (repositories.id) ON DELETE CASCADE` | Parent repository |
-| `github_id` | `INTEGER` | `NOT NULL` | GitHub user ID |
+| `github_id` | `INTEGER` | `NULLABLE` | GitHub user ID |
 | `github_login` | `VARCHAR(255)` | `NOT NULL` | GitHub username |
-| `display_name` | `VARCHAR(255)` | `NULLABLE` | GitHub profile display name |
-| `avatar_url` | `VARCHAR(500)` | `NULLABLE` | Contributor avatar image URL |
-| `created_at` | `TIMESTAMP` | Default: `NOW()` | Record creation timestamp |
+| `display_name` | `VARCHAR(255)` | `NOT NULL` | GitHub profile display name |
+| `avatar_url` | `VARCHAR(500)` | `NOT NULL` | Contributor avatar image URL |
 
 **Indexes & Constraints**:
 - `PRIMARY KEY (id)`
 - `INDEX ix_contributors_repository_id ON contributors (repository_id)`
-- `UNIQUE CONSTRAINT uq_contributors_github_repo (github_id, repository_id)`
+- `UNIQUE CONSTRAINT uq_github_id_repository_id (github_id, repository_id)`
 
 ---
 
@@ -266,7 +265,7 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY`, Default: `gen_random_uuid()` | Internal PR identifier |
 | `repository_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (repositories.id) ON DELETE CASCADE` | Parent repository |
-| `author_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (contributors.id)` | PR author reference |
+| `author_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (contributors.id) ON DELETE CASCADE` | PR author reference |
 | `github_pr_number`| `INTEGER` | `NOT NULL` | Repository PR number (e.g. `#142`) |
 | `title` | `VARCHAR(500)` | `NOT NULL` | Pull request title |
 | `state` | `VARCHAR(50)` | `NOT NULL`, `CHECK (state IN ('open', 'merged', 'closed'))` | Current lifecycle state |
@@ -276,15 +275,14 @@ erDiagram
 | `closed_at` | `TIMESTAMP` | `NULLABLE` | Unmerged closure timestamp |
 | `additions` | `INTEGER` | `NOT NULL`, Default: `0` | Number of added lines |
 | `deletions` | `INTEGER` | `NOT NULL`, Default: `0` | Number of deleted lines |
-| `created_at` | `TIMESTAMP` | Default: `NOW()` | Record creation timestamp |
 
 **Indexes & Constraints**:
 - `PRIMARY KEY (id)`
 - `INDEX ix_pull_requests_repository_id ON pull_requests (repository_id)`
 - `INDEX ix_pull_requests_author_id ON pull_requests (author_id)`
 - `INDEX ix_pull_requests_state ON pull_requests (state)`
-- `COMPOSITE INDEX ix_pull_requests_repo_opened ON pull_requests (repository_id, opened_at DESC)`
-- `UNIQUE CONSTRAINT uq_pull_requests_number_repo (github_pr_number, repository_id)`
+- `COMPOSITE INDEX ix_pull_requests_repository_opened_at ON pull_requests (repository_id, opened_at DESC)`
+- `UNIQUE CONSTRAINT uq_github_pr_number_repository_id (github_pr_number, repository_id)`
 
 ---
 
@@ -295,15 +293,14 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY`, Default: `gen_random_uuid()` | Label record identifier |
 | `pull_request_id`| `UUID` | `NOT NULL`, `FOREIGN KEY (pull_requests.id) ON DELETE CASCADE` | Parent pull request |
-| `name` | `VARCHAR(255)` | `NOT NULL` | Label text |
-| `color` | `VARCHAR(7)` | `NULLABLE` | Hex color code (e.g. `#e11d48`) |
-| `created_at` | `TIMESTAMP` | Default: `NOW()` | Record creation timestamp |
+| `name` | `VARCHAR(255)` | `NULLABLE` | Label text |
+| `color` | `VARCHAR(7)` | `NOT NULL` | Hex color code (e.g. `#e11d48`) |
 
 **Indexes & Constraints**:
 - `PRIMARY KEY (id)`
 - `INDEX ix_pr_labels_pull_request_id ON pr_labels (pull_request_id)`
 - `INDEX ix_pr_labels_name ON pr_labels (name)`
-- `UNIQUE CONSTRAINT uq_pr_labels_pr_name (pull_request_id, name)`
+- `UNIQUE CONSTRAINT uq_name_pull_request_id (name, pull_request_id)`
 
 ---
 
@@ -314,17 +311,16 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY`, Default: `gen_random_uuid()` | Record identifier |
 | `pull_request_id`| `UUID` | `NOT NULL`, `FOREIGN KEY (pull_requests.id) ON DELETE CASCADE` | Parent pull request |
-| `contributor_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (contributors.id)` | Assigned reviewer |
+| `contributor_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (contributors.id) ON DELETE CASCADE` | Assigned reviewer |
 | `requested_at` | `TIMESTAMP` | `NOT NULL` | Timestamp review was requested |
-| `status` | `VARCHAR(50)` | `NOT NULL`, Default: `'pending'`, `CHECK (status IN ('pending', 'reviewed', 'removed'))` | Review assignment status |
-| `created_at` | `TIMESTAMP` | Default: `NOW()` | Record creation timestamp |
+| `status` | `VARCHAR(50)` | `NOT NULL` | Review assignment status (e.g. `'requested'`) |
 
 **Indexes & Constraints**:
 - `PRIMARY KEY (id)`
 - `INDEX ix_pull_request_reviewers_pr_id ON pull_request_reviewers (pull_request_id)`
 - `INDEX ix_pull_request_reviewers_contributor_id ON pull_request_reviewers (contributor_id)`
 - `INDEX ix_pull_request_reviewers_status ON pull_request_reviewers (status)`
-- `UNIQUE CONSTRAINT uq_pr_reviewers_pr_contributor (pull_request_id, contributor_id)`
+- `UNIQUE CONSTRAINT uq_pull_request_id_contributor_id (pull_request_id, contributor_id)`
 
 ---
 
@@ -339,7 +335,6 @@ erDiagram
 | `github_review_id`| `BIGINT` | `NOT NULL`, `UNIQUE` | Immutable GitHub review ID |
 | `state` | `VARCHAR(50)` | `NOT NULL`, `CHECK (state IN ('approved', 'changes_requested', 'commented'))` | Submitted review verdict |
 | `submitted_at` | `TIMESTAMP` | `NOT NULL` | Submission timestamp |
-| `created_at` | `TIMESTAMP` | Default: `NOW()` | Record creation timestamp |
 
 **Indexes**:
 - `PRIMARY KEY (id)`
@@ -359,16 +354,15 @@ erDiagram
 | `repository_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (repositories.id) ON DELETE CASCADE` | Parent repository |
 | `author_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (contributors.id)` | Committer reference |
 | `sha` | `VARCHAR(40)` | `NOT NULL` | Git commit hash |
-| `message` | `VARCHAR(500)` | `NOT NULL` | First line of commit message |
+| `message` | `VARCHAR` | `NOT NULL` | First line of commit message |
 | `committed_at` | `TIMESTAMP` | `NOT NULL` | Git commit timestamp |
-| `created_at` | `TIMESTAMP` | Default: `NOW()` | Record creation timestamp |
 
 **Indexes & Constraints**:
 - `PRIMARY KEY (id)`
 - `INDEX ix_commits_repository_id ON commits (repository_id)`
 - `INDEX ix_commits_author_id ON commits (author_id)`
 - `INDEX ix_commits_committed_at ON commits (committed_at DESC)`
-- `UNIQUE CONSTRAINT uq_commits_sha_repo (sha, repository_id)`
+- `UNIQUE CONSTRAINT uq_commits_sha_repository (sha, repository_id)`
 
 ---
 
@@ -427,7 +421,7 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY`, Default: `gen_random_uuid()` | Digest record identifier |
 | `user_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (users.id) ON DELETE CASCADE` | Owning account reference |
-| `repository_id` | `UUID` | `NULLABLE`, `FOREIGN KEY (repositories.id) ON DELETE CASCADE` | Target repository |
+| `repository_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (repositories.id) ON DELETE CASCADE` | Target repository |
 | `content` | `TEXT` | `NOT NULL` | Markdown digest text generated by Gemini |
 | `period_start` | `TIMESTAMP` | `NOT NULL` | Summarized window start date |
 | `period_end` | `TIMESTAMP` | `NOT NULL` | Summarized window end date |
@@ -474,13 +468,13 @@ When a platform user deletes their account (`DELETE FROM users WHERE id = :user_
 | :--- | :--- | :--- |
 | `users` | `UNIQUE(github_id)` | Prevents duplicate accounts for the same GitHub identity |
 | `user_preferences` | `UNIQUE(user_id)` | Enforces strict 1:1 ratio between user and preferences |
-| `repositories` | `UNIQUE(github_id, user_id)` | Prevents duplicating a repository connection per user |
-| `contributors` | `UNIQUE(github_id, repository_id)` | Scopes contributor records strictly per repository |
-| `pull_requests` | `UNIQUE(github_pr_number, repository_id)` | Prevents duplicate PR ingestion during syncs |
-| `pr_labels` | `UNIQUE(pull_request_id, name)` | Idempotent label updates |
-| `pull_request_reviewers`| `UNIQUE(pull_request_id, contributor_id)` | Prevents duplicate reviewer assignments |
+| `repositories` | `UNIQUE(github_id, user_id)` (Constraint: `uq_github_id_user_id`) | Prevents duplicating a repository connection per user |
+| `contributors` | `UNIQUE(github_id, repository_id)` (Constraint: `uq_github_id_repository_id`) | Scopes contributor records strictly per repository |
+| `pull_requests` | `UNIQUE(github_pr_number, repository_id)` (Constraint: `uq_github_pr_number_repository_id`) | Prevents duplicate PR ingestion during syncs |
+| `pr_labels` | `UNIQUE(name, pull_request_id)` (Constraint: `uq_name_pull_request_id`) | Idempotent label updates |
+| `pull_request_reviewers`| `UNIQUE(pull_request_id, contributor_id)` (Constraint: `uq_pull_request_id_contributor_id`) | Prevents duplicate reviewer assignments |
 | `reviews` | `UNIQUE(github_review_id)` | Global uniqueness preventing duplicate webhook syncs |
-| `commits` | `UNIQUE(sha, repository_id)` | Prevents duplicate commit logs |
+| `commits` | `UNIQUE(sha, repository_id)` (Constraint: `uq_commits_sha_repository`) | Prevents duplicate commit logs |
 | `webhook_events` | `UNIQUE(github_delivery)` | Prevents duplicate delivery retries by GitHub |
 
 ---
@@ -508,7 +502,7 @@ Instead of relying solely on TTL caching, Veltro sets `is_stale = true` on exist
 ## 7. Analytics Query Patterns
 
 ### 7.1 Cycle Time & Review Latency Aggregation
-Hits: `ix_pull_requests_repo_opened` composite index.
+Hits: `ix_pull_requests_repository_opened_at` composite index.
 
 ```sql
 SELECT 
@@ -541,7 +535,7 @@ HAVING COUNT(prr.id) >= 3;
 ```
 
 ### 7.3 Weekly Deploy Frequency
-Hits: `ix_pull_requests_repo_opened` composite index.
+Hits: `ix_pull_requests_repository_opened_at` composite index.
 
 ```sql
 SELECT 

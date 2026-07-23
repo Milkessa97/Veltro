@@ -27,7 +27,7 @@ def get_fresh_digest(
         Digest.user_id == user.id,
         Digest.repository_id == repository_id,
         Digest.type == digest_type,
-        Digest.is_stale == False,
+        Digest.is_stale.is_(False), 
         Digest.generated_at > cutoff_naive
     ).order_by(Digest.generated_at.desc()).first()
 
