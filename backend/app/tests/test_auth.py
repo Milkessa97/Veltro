@@ -222,7 +222,8 @@ def test_callback_endpoint_success(mock_fetch_info, mock_exchange):
     mock_user = User(
         id="550e8400-e29b-41d4-a716-446655440000",
         github_login="testuser",
-        github_id=12345
+        github_id=12345,
+        github_installation_id=67890
     )
 
     from app.models.user_preferences import UserPreferences as UP
@@ -279,7 +280,8 @@ def test_callback_endpoint_redirects_to_dashboard_when_onboarded(mock_fetch_info
     mock_user = User(
         id="550e8400-e29b-41d4-a716-446655440000",
         github_login="testuser",
-        github_id=12345
+        github_id=12345,
+        github_installation_id=67890
     )
 
     from app.models.user_preferences import UserPreferences as UP
@@ -312,6 +314,111 @@ def test_callback_endpoint_redirects_to_dashboard_when_onboarded(mock_fetch_info
 
         assert response.status_code == 307
         assert response.headers.get("location") == f"{settings.FRONTEND_URL}/dashboard"
+
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@patch("app.routes.auth.exchange_github_code_for_token")
+@patch("app.routes.auth.fetch_github_user_info")
+def test_callback_endpoint_redirects_to_installation_page_when_no_installation_id(mock_fetch_info, mock_exchange):
+    """A user logging in who has not installed the App should be redirected to the installation page."""
+    mock_exchange.return_value = "mock_github_token"
+    mock_fetch_info.return_value = {
+        "id": 12345,
+        "login": "testuser",
+        "name": "Test User",
+        "avatar_url": "https://avatar.url"
+    }
+
+    mock_db = MagicMock()
+    mock_user = User(
+        id="550e8400-e29b-41d4-a716-446655440000",
+        github_login="testuser",
+        github_id=12345,
+        github_installation_id=None
+    )
+
+    from app.models.user_preferences import UserPreferences as UP
+    mock_prefs = UP(
+        user_id="550e8400-e29b-41d4-a716-446655440000",
+        is_onboarded=False
+    )
+
+    def query_side_effect(model):
+        mock_q = MagicMock()
+        if model is UP:
+            mock_q.filter.return_value.first.return_value = mock_prefs
+        else:
+            mock_q.filter.return_value.first.return_value = mock_user
+        return mock_q
+
+    mock_db.query.side_effect = query_side_effect
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    try:
+        client = TestClient(app)
+        state_val = "secure_state_token"
+        client.cookies.set("oauth_state", state_val)
+
+        response = client.get(
+            f"/auth/callback?code=mock_code&state={state_val}",
+            follow_redirects=False
+        )
+
+        assert response.status_code == 307
+        assert response.headers.get("location") == f"https://github.com/apps/{settings.GITHUB_APP_SLUG}/installations/new"
+        assert "access_token" in response.cookies
+        assert "refresh_token" in response.cookies
+
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+def test_callback_endpoint_session_recovery_with_installation_id():
+    """If code is missing but installation_id and access_token cookie are present, associate and redirect."""
+    user_id = "550e8400-e29b-41d4-a716-446655440000"
+    access_token = create_jwt_token(user_id, token_type="access")
+
+    mock_db = MagicMock()
+    mock_user = User(
+        id=user_id,
+        github_login="testuser",
+        github_id=12345,
+        github_installation_id=None
+    )
+
+    from app.models.user_preferences import UserPreferences as UP
+    mock_prefs = UP(
+        user_id=user_id,
+        is_onboarded=False
+    )
+
+    def query_side_effect(model):
+        mock_q = MagicMock()
+        if model is UP:
+            mock_q.filter.return_value.first.return_value = mock_prefs
+        else:
+            mock_q.filter.return_value.first.return_value = mock_user
+        return mock_q
+
+    mock_db.query.side_effect = query_side_effect
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    try:
+        client = TestClient(app)
+        client.cookies.set("access_token", access_token)
+
+        response = client.get(
+            "/auth/callback?installation_id=67890&setup_action=install",
+            follow_redirects=False
+        )
+
+        assert response.status_code == 307
+        assert response.headers.get("location") == f"{settings.FRONTEND_URL}/onboarding"
+        assert mock_user.github_installation_id == 67890
 
     finally:
         app.dependency_overrides.pop(get_db, None)

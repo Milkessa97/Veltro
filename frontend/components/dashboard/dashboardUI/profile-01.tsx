@@ -1,6 +1,7 @@
 import { LogOut, MoveUpRight, Settings, CreditCard, FileText } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { logoutAction } from "@/app/actions/auth"
 
 interface MenuItem {
   label: string
@@ -62,15 +63,16 @@ export default function Profile01({
                 alt={name}
                 width={72}
                 height={72}
-                className="rounded-full ring-4 ring-white dark:ring-zinc-900 object-cover"
+                className="rounded-full ring-4 ring-white dark:ring-zinc-900 object-cover w-[72px] h-[72px]"
+                unoptimized
               />
               <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" />
             </div>
-
+ 
             {/* Profile Info */}
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{name}</h2>
-              <p className="text-zinc-600 dark:text-zinc-400">{role}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 truncate">{name}</h2>
+              <p className="text-zinc-600 dark:text-zinc-400 truncate">{role}</p>
             </div>
           </div>
           <div className="h-px bg-zinc-200 dark:bg-zinc-800 my-6" />
@@ -96,9 +98,10 @@ export default function Profile01({
 
             <button
               type="button"
+              onClick={() => logoutAction()}
               className="w-full flex items-center justify-between p-2 
-                                hover:bg-zinc-50 dark:hover:bg-zinc-800/50 
-                                rounded-lg transition-colors duration-200"
+                                 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 
+                                 rounded-lg transition-colors duration-200 text-left"
             >
               <div className="flex items-center gap-2">
                 <LogOut className="w-4 h-4" />

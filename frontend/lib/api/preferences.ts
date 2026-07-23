@@ -9,6 +9,7 @@ export interface UserPreferences {
   default_date_range_days: number
   digest_panel_expanded: boolean
   is_onboarded: boolean
+  gemini_api_key_set: boolean
 }
 
 export interface UpdatePreferencesPayload {
@@ -16,6 +17,7 @@ export interface UpdatePreferencesPayload {
   default_date_range_days?: number
   digest_panel_expanded?: boolean
   is_onboarded?: boolean
+  gemini_api_key?: string | null
 }
 
 /**

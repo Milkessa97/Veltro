@@ -38,6 +38,7 @@ def update_preferences(
             default_date_range_days=body.default_date_range_days,
             digest_panel_expanded=body.digest_panel_expanded,
             is_onboarded=body.is_onboarded,
+            gemini_api_key=body.gemini_api_key,
         )
     except ValueError as e:
         raise HTTPException(

@@ -7,3 +7,18 @@ services:
       - ./backend:/app
     environment:
       - ENVIRONMENT=development
+      - PYTHONPATH=/app
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password1997
+      - POSTGRES_DB=devpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - devpulse_db_data:/var/lib/postgresql/data
+
+volumes:
+  devpulse_db_data:

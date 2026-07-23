@@ -6,6 +6,9 @@ from app.models.user_preferences import UserPreferences
 from app.models.users import User
 
 
+from app.services.encryption import encrypt_token
+
+
 def get_preferences(db: Session, user: User) -> UserPreferences:
     """
     Returns the preferences row for the given user.
@@ -31,6 +34,7 @@ def update_preferences(
     default_date_range_days: Optional[int] = None,
     digest_panel_expanded: Optional[bool] = None,
     is_onboarded: Optional[bool] = None,
+    gemini_api_key: Optional[str] = None,
 ) -> UserPreferences:
     """
     Partially updates user preferences.
@@ -53,6 +57,12 @@ def update_preferences(
 
     if is_onboarded is not None:
         prefs.is_onboarded = is_onboarded
+
+    if gemini_api_key is not None:
+        if gemini_api_key == "":
+            prefs.gemini_api_key = None
+        else:
+            prefs.gemini_api_key = encrypt_token(gemini_api_key)
 
     db.commit()
     db.refresh(prefs)

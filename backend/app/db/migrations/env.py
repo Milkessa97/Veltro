@@ -16,6 +16,18 @@ from app.db.session import Base
 from app.models.users import User # noqa: F401
 from app.models.user_preferences import UserPreferences # noqa: F401
 from app.models.token_blocklist import TokenBlocklist # noqa: F401
+from app.models.repositories import Repositories # noqa: F401
+from app.models.contributors import Contributors # noqa: F401
+from app.models.pull_requests import PullRequests # noqa: F401
+from app.models.pr_labels import PrLabels # noqa: F401
+from app.models.commits import Commit # noqa: F401
+from app.models.reviews import Review # noqa: F401
+from app.models.sync_logs import SyncLog # noqa: F401
+from app.models.webhook_events import WebhookEvent # noqa: F401
+from app.models.pull_request_reviewers import PullRequestReviewer # noqa: F401
+from app.models.digest import Digest # noqa: F401
+
+
 
 settings = get_settings()
 # this is the Alembic Config object, which provides
