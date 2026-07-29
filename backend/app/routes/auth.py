@@ -1,17 +1,19 @@
 from typing import Optional
 import logging
+import concurrent.futures
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Response, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.config import get_settings, Settings
-from app.db.session import get_db
+from app.db.session import get_db, SessionLocal
 from app.models.users import User
 from app.models.user_preferences import UserPreferences
 from app.models.token_blocklist import TokenBlocklist
 from app.services.encryption import encrypt_token
-from app.services.repositories import sync_repository_data
+from app.services.repositories import sync_repository_data, get_user_repositories
 from app.services.auth import (
     exchange_github_code_for_token,
     fetch_github_user_info,
@@ -29,10 +31,6 @@ def _sync_single_repo(user_id: int, repo_id) -> None:
     Syncs a single repository in its own DB session.
     Designed to be called from a thread so each repo syncs concurrently.
     """
-    from app.db.session import SessionLocal
-    from app.models.users import User
-    from app.services.repositories import sync_repository_data
-
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()
@@ -53,10 +51,6 @@ def background_sync_all_repos(user_id: int) -> None:
     finishes onboarding and reaches the dashboard.
     Each repo runs in its own thread + DB session to avoid thread-safety issues.
     """
-    import concurrent.futures
-    from app.db.session import SessionLocal
-    from app.models.users import User
-    from app.services.repositories import get_user_repositories
 
     db = SessionLocal()
     try:
@@ -95,7 +89,6 @@ def login(settings: Settings = Depends(get_settings)):
     """
     Redirects the user to the GitHub OAuth authorize page with a secure state parameter.
     """
-    import secrets
     state = secrets.token_urlsafe(32)
     scope = "read:user"
 
