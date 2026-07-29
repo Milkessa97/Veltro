@@ -411,9 +411,9 @@ def _sync_commits(
 def sync_repository_data(
     db: Session,
     repository_id: UUID,
+    user: User,
     days: int = 30,
     triggered_by: str = "manual",
-    user: User = None
 ) -> Repositories:
     repo = db.query(Repositories).filter(
         Repositories.id == repository_id,
@@ -422,6 +422,85 @@ def sync_repository_data(
 
     if not repo or not user.github_installation_id:
         raise ValueError("Repository not found or access credentials missing.")
+
+    # Compute a single timezone-aware now timestamp for all rate limit checks
+    now_utc = datetime.now(UTC)
+
+    def _elapsed(started_at: datetime) -> timedelta:
+        """Returns elapsed time since started_at, handling naive vs. aware timestamps."""
+        ts = started_at.replace(tzinfo=UTC) if started_at.tzinfo is None else started_at
+        return now_utc - ts
+
+    # Rate Limiting & Double Sync Prevention Check (1. User concurrency lock, 2. User cooldown, 3. Repo cooldown)
+    # 1. User-wide Concurrency Check (Max 1 active sync at a time across all user's repos)
+    running_sync = db.query(SyncLog).join(Repositories).filter(
+        Repositories.user_id == user.id,
+        SyncLog.status == "running"
+    ).order_by(SyncLog.started_at.desc()).first()
+
+    if running_sync and _elapsed(running_sync.started_at) < timedelta(minutes=15):
+        running_repo = db.query(Repositories).filter(Repositories.id == running_sync.repository_id).first()
+        repo_name = running_repo.full_name if running_repo else "another repository"
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "user_sync_concurrency_limit",
+                "repository_id": str(running_sync.repository_id),
+                "repository_name": repo_name,
+                "status": "running",
+                "message": f"A synchronization is already in progress for '{repo_name}'. Please wait until it completes."
+            }
+        )
+
+    # 2. User-wide Cooldown Check (Min 1-minute interval between syncs across all user's repos)
+    # Skip this check when the last sync was for this same repository — let Check 3 (per-repo cooldown) handle it.
+    user_latest_sync = db.query(SyncLog).join(Repositories).filter(
+        Repositories.user_id == user.id,
+        SyncLog.status == "completed"
+    ).order_by(SyncLog.started_at.desc()).first()
+
+    if user_latest_sync and user_latest_sync.repository_id != repo.id:
+        if _elapsed(user_latest_sync.started_at) < timedelta(minutes=1):
+            remaining = timedelta(minutes=1) - _elapsed(user_latest_sync.started_at)
+            remaining_seconds = int(remaining.total_seconds())
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "user_rate_limit_exceeded",
+                    "status": "completed",
+                    "message": f"Please wait {remaining_seconds}s before syncing another repository.",
+                    "cooldown_seconds": remaining_seconds
+                }
+            )
+
+    # 3. Per-Repository Cooldown Check (10-minute cooldown for completed syncs on this specific repo)
+    latest_log = db.query(SyncLog).filter(
+        SyncLog.repository_id == repo.id,
+        SyncLog.status == "completed"
+    ).order_by(SyncLog.started_at.desc()).first()
+
+    if latest_log:
+        time_elapsed = _elapsed(latest_log.started_at)
+
+        if time_elapsed < timedelta(minutes=10):
+            remaining = timedelta(minutes=10) - time_elapsed
+            remaining_seconds = int(remaining.total_seconds())
+            minutes_left = remaining_seconds // 60
+            seconds_left = remaining_seconds % 60
+            time_str = f"{minutes_left}m {seconds_left}s" if minutes_left > 0 else f"{seconds_left}s"
+            
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "repository_id": str(repo.id),
+                    "repository_name": repo.full_name,
+                    "status": "completed",
+                    "message": f"Sync rate limit reached for {repo.full_name}. Please wait {time_str} before syncing again.",
+                    "cooldown_seconds": remaining_seconds
+                }
+            )
+
     logger.info(f"Syncing repository data for repository {repo.id}")
     # Transaction Isolation: Commit the running log status immediately
     sync_log = SyncLog(

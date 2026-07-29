@@ -57,6 +57,8 @@ def sync_repository_data(
             user=current_user
         )
         
+    except HTTPException as e:
+        raise e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

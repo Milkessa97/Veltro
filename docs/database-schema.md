@@ -367,14 +367,14 @@ erDiagram
 ---
 
 ### 3.11 `sync_logs`
-**Purpose**: Audit table recording execution metrics, records imported, and diagnostic errors for repository syncs.
+**Purpose**: Audit table recording execution metrics, records imported, and diagnostic errors for repository syncs. Also serves as the **persistent state store for the database-backed rate limiting system**, which queries this table to enforce concurrency locks and cooldown periods without any external infrastructure.
 
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `PRIMARY KEY`, Default: `gen_random_uuid()` | Sync log identifier |
 | `repository_id` | `UUID` | `NOT NULL`, `FOREIGN KEY (repositories.id) ON DELETE CASCADE` | Target repository |
 | `status` | `VARCHAR(50)` | `NOT NULL`, `CHECK (status IN ('running', 'completed', 'failed'))` | Sync state |
-| `triggered_by` | `VARCHAR(50)` | `NOT NULL`, `CHECK (triggered_by IN ('manual', 'webhook', 'scheduled'))` | Trigger mechanism |
+| `triggered_by` | `VARCHAR(50)` | `NOT NULL`, `CHECK (triggered_by IN ('manual', 'webhook', 'scheduled', 'auto_login'))` | Trigger source |
 | `prs_fetched` | `INTEGER` | Default: `0` | Number of PRs imported |
 | `reviews_fetched`| `INTEGER` | Default: `0` | Number of reviews imported |
 | `commits_fetched`| `INTEGER` | Default: `0` | Number of commits imported |
@@ -387,7 +387,16 @@ erDiagram
 - `INDEX ix_sync_logs_repository_id ON sync_logs (repository_id)`
 - `INDEX ix_sync_logs_started_at ON sync_logs (started_at DESC)`
 
+**Rate Limiting Queries** — Three ordered checks are made against this table before any sync is allowed to proceed:
+
+1. **User-wide concurrency lock** — Joins with `repositories` to find any `running` log belonging to the user started within the last 15 minutes. If found, the request is rejected with `HTTP 429` (`user_sync_concurrency_limit`). The 15-minute threshold auto-expires "stuck" jobs where the server crashed mid-sync.
+
+2. **User-wide cooldown** — Joins with `repositories` to find the latest `completed` log for the user across all repositories, excluding the repository being requested. If completed within the last 60 seconds, returns `HTTP 429` (`user_rate_limit_exceeded`) with the exact remaining cooldown in seconds.
+
+3. **Per-repository cooldown** — Filters directly on `repository_id` for the latest `completed` log. If completed within 10 minutes, returns `HTTP 429` (`rate_limit_exceeded`) with remaining minutes and seconds.
+
 ---
+
 
 ### 3.12 `webhook_events`
 **Purpose**: Raw payload archive for incoming GitHub webhook events, enabling idempotent processing and offline event replays.

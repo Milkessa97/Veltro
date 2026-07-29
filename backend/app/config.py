@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     COOKIE_PATH_PREFIX: str = "/api"
 
+    resend_api_key: str
+    contact_email: str
+
     model_config = {
         "env_file": ".env",
         "extra": "ignore"
