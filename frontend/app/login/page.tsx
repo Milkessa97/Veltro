@@ -110,7 +110,7 @@ function LoginCard() {
           <div className="relative z-10 mt-6 flex items-start gap-2 rounded-lg border border-border bg-background/50 p-3">
             <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Your session is stored in a secure, HTTP-only cookie. DevPulse never exposes your token to the browser and
+              Your session is stored in a secure, HTTP-only cookie. Veltro never exposes your token to the browser and
               only requests read access to repository metadata.
             </p>
           </div>
@@ -118,11 +118,11 @@ function LoginCard() {
 
         <p className="mt-6 text-center text-xs text-muted-foreground relative z-10">
           By continuing you agree to our{" "}
-          <Link href="#" className="text-foreground hover:underline">
+          <Link href="/terms" className="text-foreground hover:underline">
             Terms
           </Link>{" "}
           and{" "}
-          <Link href="#" className="text-foreground hover:underline">
+          <Link href="/privacy" className="text-foreground hover:underline">
             Privacy Policy
           </Link>
           .

@@ -43,7 +43,7 @@ class SyncLog(Base):
             name="ck_sync_logs_status",
         ),
         CheckConstraint(
-            "triggered_by IN ('manual', 'webhook', 'scheduled')",
+            "triggered_by IN ('manual', 'webhook', 'scheduled', 'auto_login')",
             name="ck_sync_logs_triggered_by",
         ),
         Index(

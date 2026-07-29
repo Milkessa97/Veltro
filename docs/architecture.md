@@ -94,6 +94,13 @@ The architecture prioritizes **zero-trust security**, **strict data isolation**,
 - **Choice**: Persist only the GitHub `installation_id` in the database, generating short-lived installation access tokens on demand.
 - **Why**: GitHub installation tokens expire after 1 hour. Persisting temporary tokens creates complex token refresh loops and invalidation risks. Storing the permanent `installation_id` allows Veltro to mint fresh 1-hour installation tokens via JWT signatures signed with the App's private key (`GITHUB_PRIVATE_KEY`) whenever sync jobs execute.
 
+### 3.9 Database-Backed Sync Rate Limiting
+- **Choice**: Implement synchronization throttling using the existing `sync_logs` PostgreSQL table rather than an in-memory store or Redis.
+- **Why**: In-memory rate limiters reset on server restarts and fail under horizontal scaling. Redis adds infrastructure overhead. The `sync_logs` table already records every sync execution, making it a zero-cost, persistent source of truth. Three-layer checks are applied in order:
+  1. **User-wide concurrency lock** — Blocks a new sync if any of the user's repositories has a `running` sync log entry under 15 minutes old, preventing parallel GitHub API exhaustion.
+  2. **User-wide cooldown** — Enforces a minimum 1-minute gap between syncing *different* repositories, preventing rapid sequential abuse across a large repository fleet.
+  3. **Per-repository cooldown** — Enforces a 10-minute cooldown before re-syncing the same repository, ensuring the database is not hammered repeatedly for a single repo.
+
 ---
 
 ## 4. Request Lifecycle Traces

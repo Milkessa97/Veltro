@@ -13,7 +13,16 @@ export function ThemeToggle() {
   }, [])
 
   if (!mounted) {
-    return null
+    return (
+      <button
+        type="button"
+        disabled
+        className="relative p-2 rounded-full opacity-0"
+        aria-hidden="true"
+      >
+        <span className="h-5 w-5 block" />
+      </button>
+    )
   }
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -23,15 +23,52 @@ export default function VeltroLogoAnimation({
 }: VeltroLogoAnimationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const logoWrapperRef = useRef<HTMLDivElement>(null);
+  const [animationMode, setAnimationMode] = useState<'scroll' | 'auto' | 'static'>('scroll');
 
   useEffect(() => {
+    const checkPreferences = () => {
+      if (typeof window === 'undefined') return;
+
+      const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const sizeQuery = window.matchMedia('(max-width: 1023px)');
+
+      if (motionQuery.matches) {
+        setAnimationMode('static');
+      } else if (sizeQuery.matches) {
+        setAnimationMode('auto');
+      } else {
+        setAnimationMode('scroll');
+      }
+    };
+
+    checkPreferences();
+
+    const mediaQueryList = window.matchMedia('(max-width: 1023px)');
+    const motionQueryList = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const listener = () => checkPreferences();
+
+    mediaQueryList.addEventListener('change', listener);
+    motionQueryList.addEventListener('change', listener);
+
+    return () => {
+      mediaQueryList.removeEventListener('change', listener);
+      motionQueryList.removeEventListener('change', listener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (animationMode !== 'scroll') return;
+
     const ctx = gsap.context(() => {
       if (!containerRef.current || !logoWrapperRef.current) return;
 
-      // 3D Y-axis rotation tied to scroll
+      // 3D Y-axis rotation tied to scroll (Desktop only)
       gsap.to(logoWrapperRef.current, {
         rotateY: ROTATION_AMOUNT,
+        scale: 1.08,
         ease: 'none',
+        force3D: true, // Force hardware acceleration
         scrollTrigger: {
           trigger: document.documentElement,
           start: 'top top',
@@ -39,11 +76,10 @@ export default function VeltroLogoAnimation({
           scrub: 0.5,
         }
       });
-
     });
 
     return () => ctx.revert();
-  }, []);
+  }, [animationMode]);
 
   // Generate thickness layers for 3D extrusion
   const thicknessLayers = Array.from({ length: THICKNESS_LAYERS }, (_, i) => {
@@ -59,7 +95,15 @@ export default function VeltroLogoAnimation({
     >
       {/* Fixed Logo Overlay */}
       <div className="veltro-logo-viewport">
-        <div ref={logoWrapperRef} className="veltro-logo-wrapper">
+        {/* Glow background behind the logo (replaces heavy blur filters) */}
+        <div className="veltro-logo-glow" />
+
+        <div
+          ref={logoWrapperRef}
+          className={`veltro-logo-wrapper ${
+            animationMode === 'auto' ? 'veltro-logo-auto-rotate' : ''
+          }`}
+        >
           {/* Thickness layers (3D extrusion) */}
           {thicknessLayers.map(({ offset, opacity, key }) => (
             <div
@@ -104,8 +148,19 @@ export default function VeltroLogoAnimation({
           justify-content: center;
           perspective: 1400px;
           opacity: 0.45;
-          filter: blur(3px);
-          will-change: transform, filter;
+          will-change: transform;
+          transform: translate3d(0, 0, 0);
+        }
+
+        /* Beautiful radial glow behind the logo that doesn't rotate (high performance) */
+        .veltro-logo-glow {
+          position: absolute;
+          width: min(650px, 85vw);
+          height: min(650px, 85vw);
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
+          pointer-events: none;
+          z-index: -1;
+          will-change: transform;
           transform: translate3d(0, 0, 0);
         }
 
@@ -116,6 +171,20 @@ export default function VeltroLogoAnimation({
           transform-style: preserve-3d;
           transform: scale(1.08);
           will-change: transform;
+        }
+
+        /* Smooth hardware-accelerated auto-rotation for mobile/tablet fallback */
+        .veltro-logo-auto-rotate {
+          animation: veltro-spin-animation 30s linear infinite;
+        }
+
+        @keyframes veltro-spin-animation {
+          from {
+            transform: rotateY(0deg) scale(1.08);
+          }
+          to {
+            transform: rotateY(360deg) scale(1.08);
+          }
         }
 
         .veltro-logo-layer,
@@ -131,11 +200,10 @@ export default function VeltroLogoAnimation({
 
         .veltro-logo-outline {
           opacity: 0.08;
-          filter: blur(2px);
         }
 
         .veltro-logo-filled {
-          filter: blur(1px);
+          opacity: 1;
         }
 
         .veltro-logo-image {

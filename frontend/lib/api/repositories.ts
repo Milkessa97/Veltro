@@ -28,7 +28,20 @@ export async function syncRepo(id: string): Promise<Repository> {
     method: "POST",
     credentials: "include",
   })
-  if (!res.ok) throw new Error(`Sync failed: ${res.statusText}`)
+  if (!res.ok) {
+    let errorData
+    try {
+      errorData = await res.json()
+    } catch {
+      // ignore JSON parse failures
+    }
+    const message = errorData?.detail?.message || `Sync failed: ${res.statusText}`
+    const error = new Error(message)
+    if (errorData?.detail) {
+      ;(error as any).detail = errorData.detail
+    }
+    throw error
+  }
   return res.json()
 }
 

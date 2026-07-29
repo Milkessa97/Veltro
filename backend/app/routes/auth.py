@@ -1,26 +1,85 @@
 from typing import Optional
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Response
+import concurrent.futures
+import secrets
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Response, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.config import get_settings, Settings
-from app.db.session import get_db
+from app.db.session import get_db, SessionLocal
 from app.models.users import User
 from app.models.user_preferences import UserPreferences
 from app.models.token_blocklist import TokenBlocklist
 from app.services.encryption import encrypt_token
+from app.services.repositories import sync_repository_data, get_user_repositories
 from app.services.auth import (
     exchange_github_code_for_token,
     fetch_github_user_info,
-    create_jwt_token,
+    create_jwt_token,   
     verify_jwt_token,
     get_current_user,
     purge_expired_blocklist
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _sync_single_repo(user_id: int, repo_id) -> None:
+    """
+    Syncs a single repository in its own DB session.
+    Designed to be called from a thread so each repo syncs concurrently.
+    """
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return
+        sync_repository_data(db, repo_id, days=30, triggered_by="auto_login", user=user)
+        logger.info(f"Background sync: Successfully synced repo {repo_id}")
+    except Exception as e:
+        logger.error(f"Background sync: Failed to sync repo {repo_id}: {str(e)}")
+    finally:
+        db.close()
+
+
+def background_sync_all_repos(user_id: int) -> None:
+    """
+    Background task triggered immediately after OAuth login.
+    Syncs all repos concurrently so data is ready by the time the user
+    finishes onboarding and reaches the dashboard.
+    Each repo runs in its own thread + DB session to avoid thread-safety issues.
+    """
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.github_installation_id:
+            logger.warning(f"Background sync: User {user_id} not found or github_installation_id missing.")
+            return
+
+        repos = get_user_repositories(db, user)
+        logger.info(f"Background sync: Starting parallel sync for {len(repos)} repos of user {user_id}")
+    except Exception as e:
+        logger.error(f"Background sync: Failed to fetch repos for user {user_id}: {str(e)}")
+        return
+    finally:
+        db.close()
+
+    # Sync all repos concurrently — each gets its own thread + DB session
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(repos), 4)) as executor:
+        futures = {
+            executor.submit(_sync_single_repo, user_id, repo.id): repo.full_name
+            for repo in repos
+        }
+        for future in concurrent.futures.as_completed(futures):
+            repo_name = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                logger.error(f"Background sync: Unhandled error for {repo_name}: {str(e)}")
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -30,7 +89,6 @@ def login(settings: Settings = Depends(get_settings)):
     """
     Redirects the user to the GitHub OAuth authorize page with a secure state parameter.
     """
-    import secrets
     state = secrets.token_urlsafe(32)
     scope = "read:user"
 
@@ -65,6 +123,7 @@ def callback(
     installation_id: Optional[int] = None,
     oauth_state: Optional[str] = Cookie(None),
     access_token: Optional[str] = Cookie(None),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings)
 ):
@@ -102,8 +161,23 @@ def callback(
                     detail="OAuth state mismatch or expired. Potential CSRF attack."
                 )
 
-        access_token_github = exchange_github_code_for_token(code)
-        github_user = fetch_github_user_info(access_token_github)
+            access_token_github = exchange_github_code_for_token(code)
+            github_user = fetch_github_user_info(access_token_github)
+        else:
+            # No reliable state for the "authorize during install" flow.
+            # Exchange the code, then require the resulting identity to match
+            # whoever is already logged in — never trust it to establish a new session.
+            access_token_github = exchange_github_code_for_token(code)
+            github_user = fetch_github_user_info(access_token_github)
+
+            if not access_token:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please log in before installing the app.")
+            payload = verify_jwt_token(access_token)
+            if not payload:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired, please log in again.")
+            current_user = db.query(User).filter(User.id == payload.get("sub")).first()
+            if not current_user or current_user.github_id != github_user.get("id"):
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "This GitHub account doesn't match your session.")
 
         github_id = github_user.get("id")
         github_login = github_user.get("login")
@@ -152,6 +226,8 @@ def callback(
         try:
             from app.services.repositories import sync_repositories
             sync_repositories(db, user)
+            if background_tasks:
+                background_tasks.add_task(background_sync_all_repos, user.id)
         except Exception as e:
             logger.error(f"Failed to auto-sync repositories on login for user {user.id}: {str(e)}")
 
