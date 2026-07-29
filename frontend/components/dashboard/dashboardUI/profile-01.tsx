@@ -18,37 +18,22 @@ interface Profile01Props {
   subscription?: string
 }
 
-const defaultProfile = {
-  name: "Sarah Chen",
-  role: "Engineering Lead",
-  avatar: "https://ferf1mheo22r9ira.public.blob.vercel-storage.com/avatar-02-albo9B0tWOSLXCVZh9rX9KFxXIVWMr.png",
-  subscription: "Team Plan",
-} satisfies Required<Profile01Props>
-
 export default function Profile01({
-  name = defaultProfile.name,
-  role = defaultProfile.role,
-  avatar = defaultProfile.avatar,
-  subscription = defaultProfile.subscription,
-}: Partial<Profile01Props> = defaultProfile) {
+  name,
+  role,
+  avatar,
+  subscription,
+}: Profile01Props) {
   const menuItems: MenuItem[] = [
     {
-      label: "Subscription",
-      value: subscription,
-      href: "#",
-      icon: <CreditCard className="w-4 h-4" />,
-      external: false,
-    },
-    {
       label: "Settings",
-      href: "#",
+      href: "/dashboard/settings",
       icon: <Settings className="w-4 h-4" />,
     },
     {
       label: "Terms & Policies",
-      href: "#",
+      href: "/terms",
       icon: <FileText className="w-4 h-4" />,
-      external: true,
     },
   ]
 

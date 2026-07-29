@@ -1,57 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Clock,
-  Timer,
-  GitPullRequest,
-  GitMerge,
-  RefreshCw,
-  Users2,
-  BarChart3,
-  AlertTriangle,
-  FolderGit2,
-  Rocket,
-  Hourglass,
-  ShieldAlert,
-  Zap,
-  Settings2, 
-  Calendar, 
-  KeyRound, 
-  CheckCircle2, 
-  AlertCircle,
-  Eye,
-  EyeOff
-} from "lucide-react"
+import {Clock, Timer, GitPullRequest, GitMerge, RefreshCw, Users2, BarChart3, AlertTriangle, FolderGit2, 
+        Rocket, Hourglass, ShieldAlert, Zap, Settings2, Calendar, KeyRound, CheckCircle2, AlertCircle, 
+        Eye, EyeOff} from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartTooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts"
+import {LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip as RechartTooltip,Legend,
+        ResponsiveContainer,} from "recharts"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Panel, PanelHeader } from "./panel"
 import { EmptyState } from "./empty-state"
 import { useRepo, type DateRange } from "./repo-context"
-import {
-  getRepoMetrics,
-  getContributorMetrics,
-  getPullRequests,
-  type RepoMetrics,
-  type ContributorMetrics,
-  type PullRequestDetail,
-} from "@/lib/api/repositories"
+import {getRepoMetrics,getContributorMetrics,getPullRequests,type RepoMetrics,type ContributorMetrics,
+        type PullRequestDetail,} from "@/lib/api/repositories"
 
 
 // ─── Weekly trend data helper ──────────────────────────────────────────────────
@@ -610,7 +577,7 @@ export default function Overview() {
   const [dataError, setDataError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!activeRepo) return
+    if (!activeRepo || !activeRepo.is_synced) return
     let cancelled = false
     setDataLoading(true)
     setDataError(null)
@@ -633,7 +600,7 @@ export default function Overview() {
         if (!cancelled) setDataLoading(false)
       })
     return () => { cancelled = true }
-  }, [activeRepo?.id, dateRangeDays])
+  }, [activeRepo?.id, activeRepo?.is_synced, dateRangeDays])
 
   if (repoLoading) {
     return (
@@ -652,6 +619,23 @@ export default function Overview() {
         title="No repository selected"
         description="Connect a GitHub repository to start visualizing PR cycle time, review latency, and team health metrics."
       />
+    )
+  }
+
+  if (!activeRepo.is_synced) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <MetricCard key={i} metric={{ icon: Clock, label: "", value: "", subtitle: "", sentiment: "neutral" }} loading />
+        ))}
+        <div className="col-span-full flex flex-col items-center justify-center gap-3 py-16 text-center border border-dashed border-border rounded-xl bg-card/25 backdrop-blur-sm">
+          <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-2">Preparing your workspace</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+            We're fetching pull requests, commits, and contributor metrics from GitHub. This won't take long!
+          </p>
+        </div>
+      </div>
     )
   }
 

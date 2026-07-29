@@ -10,6 +10,7 @@ import {
 } from "react"
 import { getRepositories, syncRepo, type Repository } from "@/lib/api/repositories"
 import { getPreferences, updatePreferences } from "@/lib/api/preferences"
+import { toast } from "@/hooks/use-toast"
 
 export type DateRange = "7d" | "30d" | "90d"
 
@@ -74,6 +75,49 @@ export function RepoProvider({ children }: { children: ReactNode }) {
 
   const activeRepo = repositories.find((r) => r.id === activeRepoId) ?? null
 
+  // Auto-poll repositories if the active repository is not synced yet (initial signup/sync background tasks).
+  // Caps at MAX_POLL_ATTEMPTS to prevent hammering the backend indefinitely when a sync stalls.
+  const MAX_POLL_ATTEMPTS = 20
+  useEffect(() => {
+    if (!activeRepo || activeRepo.is_synced) return
+
+    // Capture the ID at effect-creation time so the async poll closure
+    // always has a stable non-null string reference, even if activeRepo
+    // changes to null between poll ticks.
+    const repoId = activeRepo.id
+
+    let intervalId: NodeJS.Timeout
+    let cancelled = false
+    let attempts = 0
+
+    async function poll() {
+      attempts++
+      if (attempts > MAX_POLL_ATTEMPTS) {
+        clearInterval(intervalId)
+        return
+      }
+      try {
+        const repos = await getRepositories()
+        if (cancelled) return
+        setRepositories(repos)
+        // Stop polling as soon as the active repo flips to synced
+        const updatedActive = repos.find((r) => r.id === repoId)
+        if (updatedActive?.is_synced) {
+          clearInterval(intervalId)
+        }
+      } catch (err) {
+        console.error("Failed to poll repository status:", err)
+      }
+    }
+
+    intervalId = setInterval(poll, 5000)
+
+    return () => {
+      cancelled = true
+      clearInterval(intervalId)
+    }
+  }, [activeRepo?.id, activeRepo?.is_synced])
+
   const setActiveRepoId = useCallback(
     (id: string) => {
       setActiveRepoIdState(id)
@@ -97,8 +141,42 @@ export function RepoProvider({ children }: { children: ReactNode }) {
       setRepositories((prev) =>
         prev.map((r) => (r.id === updated.id ? updated : r))
       )
-    } catch (err) {
-      setError("Sync failed. Please try again.")
+      toast({
+        title: "Sync Completed",
+        description: `Successfully updated metrics for ${updated.full_name}.`,
+      })
+    } catch (err: any) {
+      const detail = err.detail
+      const errorMessage = err.message || "Sync failed. Please try again."
+      setError(errorMessage)
+      
+      if (detail && detail.error === "rate_limit_exceeded") {
+        toast({
+          title: "Repo Cooldown Active",
+          description: detail.message,
+          variant: "destructive",
+        })
+      } else if (detail && detail.error === "user_rate_limit_exceeded") {
+        toast({
+          title: "Sync Rate Limit",
+          description: detail.message,
+          variant: "destructive",
+        })
+      } else if (
+        detail &&
+        (detail.error === "sync_in_progress" || detail.error === "user_sync_concurrency_limit")
+      ) {
+        toast({
+          title: "Sync Already Active",
+          description: detail.message,
+        })
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: errorMessage,
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsSyncing(false)
     }

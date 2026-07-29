@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { SendIcon, CheckIcon } from "./LandingPage/icons"
 import { Github, Twitter, Star, ArrowRight, MessageSquareHeart, Sparkles, User, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { sendContactEmailAction, sendFeedbackEmailAction } from "@/app/actions/email"
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 
@@ -86,18 +85,25 @@ function FeedbackPanel() {
     setIsSending(true)
     setErrorMsg("")
     try {
-      const result = await sendFeedbackEmailAction({
-        rating,
-        name,
-        role,
-        email,
-        quote,
-        allowPublic,
+      const res = await fetch("/api/feedback/rating", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rating,
+          name: name || undefined,
+          role: role || undefined,
+          email: email || undefined,
+          quote: quote || undefined,
+          allowPublic,
+        }),
       })
-      if (result.success) {
+      const data = await res.json()
+      if (res.ok && data.success) {
         setSubmitted(true)
       } else {
-        setErrorMsg(result.error || "Failed to send feedback. Please check your setup.")
+        setErrorMsg(data.detail || "Failed to send feedback. Please check your setup.")
       }
     } catch (err: any) {
       setErrorMsg("Failed to send feedback. Please try again.")
@@ -314,11 +320,18 @@ function ContactPanel() {
     setIsSending(true)
     setErrorMsg("")
     try {
-      const result = await sendContactEmailAction({ email, message })
-      if (result.success) {
+      const res = await fetch("/api/feedback/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, message }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
         setSubmitted(true)
       } else {
-        setErrorMsg(result.error || "Failed to send message. Please check your setup.")
+        setErrorMsg(data.detail || "Failed to send message. Please check your setup.")
       }
     } catch (err: any) {
       setErrorMsg("Failed to send message. Please try again.")
