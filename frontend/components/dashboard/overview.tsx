@@ -639,7 +639,9 @@ export default function Overview() {
     )
   }
 
-  if (repoError || dataError) {
+  const hasDashboardData = metrics !== null || pullRequests.length > 0;
+
+  if ((repoError || dataError) && !hasDashboardData) {
     return (
       <EmptyState
         icon={AlertTriangle}
