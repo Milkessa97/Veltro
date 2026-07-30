@@ -131,7 +131,20 @@ export default function Sidebar() {
           >
             {!isCollapsed ? (
               <Link href="/dashboard" className="flex items-center gap-3">
-                <img src="/veltro-logo-dark-bg.svg" alt="Company Logo" width="70" height="70" />
+                  <img
+                    src="/veltro-logo-dark-bg.svg"
+                    alt="Veltro logo"
+                    width="70"
+                    height="70"
+                    className="hidden dark:block"
+                  />
+                  <img
+                    src="/veltro-logo-light-bg.svg"
+                    alt="Veltro logo"
+                    width="70"
+                    height="70"
+                    className="block dark:hidden"
+                  />
               </Link>
             ) : (
               <Link href="/dashboard" className="flex items-center justify-center">
