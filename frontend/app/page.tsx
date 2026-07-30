@@ -15,18 +15,30 @@ import { LoadingScreen } from "@/components/loading-screen"
 const HAS_LOADED_KEY = "veltro_landing_loaded"
 
 export default function LandingPage() {
-  // Skip loading screen if user has already visited this session
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === "undefined") return true
-    return sessionStorage.getItem(HAS_LOADED_KEY) !== "1"
-  })
-  const [pageReady, setPageReady] = useState(!loading)
+  // Always start as loading=true so server and client render the same HTML.
+  // After hydration, we check sessionStorage on the client and skip the loading
+  // screen if the user has visited this session before.
+  const [loading, setLoading] = useState(true)
+  const [pageReady, setPageReady] = useState(false)
 
-  // Signal that the page has been fully painted using two rAF cycles.
-  // Only needed when we're actually showing the loading screen.
   useEffect(() => {
-    if (!loading) return
+    // Check session flag — if already loaded this session, skip straight through
+    let alreadyLoaded = false
+    try {
+      alreadyLoaded = sessionStorage.getItem(HAS_LOADED_KEY) === "1"
+    } catch {
+      // sessionStorage unavailable (private mode, etc.) — treat as first load
+    }
 
+    if (alreadyLoaded) {
+      // Skip the loading screen entirely; show page immediately
+      setLoading(false)
+      setPageReady(true)
+      return
+    }
+
+    // First visit this session — let the loading screen play.
+    // Signal page is painted after two rAF cycles so the screen can start its exit.
     let raf2: number
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => setPageReady(true))
@@ -35,7 +47,7 @@ export default function LandingPage() {
       cancelAnimationFrame(raf1)
       cancelAnimationFrame(raf2)
     }
-  }, [loading])
+  }, [])
 
   // Persist the "already loaded" flag once the loading screen finishes
   const handleLoadingComplete = () => {
@@ -60,10 +72,9 @@ export default function LandingPage() {
       </AnimatePresence>
 
       <motion.div
-        initial={{ opacity: 0, y: 12, scale: 0.995 }}
+        initial={{ opacity: 0, scale: 0.995 }}
         animate={{
           opacity: loading ? 0 : 1,
-          y: loading ? 12 : 0,
           scale: loading ? 0.995 : 1,
         }}
         transition={{
