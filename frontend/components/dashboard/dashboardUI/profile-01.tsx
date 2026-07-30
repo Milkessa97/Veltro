@@ -28,18 +28,18 @@ export default function Profile01({
     {
       label: "Settings",
       href: "/dashboard/settings",
-      icon: <Settings className="w-4 h-4" />,
+      icon: <Settings className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />,
     },
     {
       label: "Terms & Policies",
       href: "/terms",
-      icon: <FileText className="w-4 h-4" />,
+      icon: <FileText className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />,
     },
   ]
 
   return (
     <div className="w-full max-w-sm mx-auto">
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-card">
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
         <div className="relative px-6 pt-12 pb-6">
           <div className="flex items-center gap-4 mb-8">
             <div className="relative shrink-0">
@@ -53,7 +53,7 @@ export default function Profile01({
               />
               <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" />
             </div>
- 
+
             {/* Profile Info */}
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 truncate">{name}</h2>
@@ -76,7 +76,7 @@ export default function Profile01({
                 </div>
                 <div className="flex items-center">
                   {item.value && <span className="text-sm text-zinc-500 dark:text-zinc-400 mr-2">{item.value}</span>}
-                  {item.external && <MoveUpRight className="w-4 h-4" />}
+                  {item.external && <MoveUpRight className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />}
                 </div>
               </Link>
             ))}
@@ -89,7 +89,7 @@ export default function Profile01({
                                  rounded-lg transition-colors duration-200 text-left"
             >
               <div className="flex items-center gap-2">
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                 <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Logout</span>
               </div>
             </button>
@@ -99,4 +99,3 @@ export default function Profile01({
     </div>
   )
 }
-

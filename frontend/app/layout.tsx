@@ -7,6 +7,7 @@ const outfit = Outfit({ subsets: ['latin'], variable: '--font-sans', weight: ['4
 const _geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
+  verification: { google: 'AYhEQXrsZPNB2qKAoqFKXN973anGnofAeQFHZwsv_s4' },
   metadataBase: new URL('https://veltro-dev.vercel.app'),
   title: {
     default: 'Veltro | Engineering Analytics for GitHub Teams',
