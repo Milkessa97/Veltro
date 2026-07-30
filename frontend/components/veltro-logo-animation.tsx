@@ -63,18 +63,26 @@ export default function VeltroLogoAnimation({
     const ctx = gsap.context(() => {
       if (!containerRef.current || !logoWrapperRef.current) return;
 
-      // 3D Y-axis rotation tied to scroll (Desktop only)
-      gsap.to(logoWrapperRef.current, {
-        rotateY: ROTATION_AMOUNT,
-        scale: 1.08,
-        ease: 'none',
-        force3D: true, // Force hardware acceleration
+      // Animate opacity instead of 3D rotation to ensure perfect scroll performance.
+      // Starts fully visible (parent viewport opacity 0.45), fades to 0 in the middle, and fades back to 1 at the bottom.
+      const tl = gsap.timeline({
         scrollTrigger: {
           trigger: document.documentElement,
           start: 'top top',
           end: 'bottom bottom',
           scrub: 0.5,
         }
+      });
+
+      tl.to(logoWrapperRef.current, {
+        opacity: 0,
+        ease: 'sine.inOut',
+        duration: 1,
+      })
+      .to(logoWrapperRef.current, {
+        opacity: 1,
+        ease: 'sine.inOut',
+        duration: 1,
       });
     });
 
@@ -173,9 +181,8 @@ export default function VeltroLogoAnimation({
           will-change: transform;
         }
 
-        /* Smooth hardware-accelerated auto-rotation for mobile/tablet fallback */
+        /* Disabled continuous spin animation for optimal mobile scroll performance */
         .veltro-logo-auto-rotate {
-          animation: veltro-spin-animation 30s linear infinite;
         }
 
         @keyframes veltro-spin-animation {

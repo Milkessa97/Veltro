@@ -7,12 +7,44 @@ const outfit = Outfit({ subsets: ['latin'], variable: '--font-sans', weight: ['4
 const _geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
-  title: 'Veltro | Engineering analytics for GitHub teams',
+  metadataBase: new URL('https://veltro-dev.vercel.app'),
+  title: {
+    default: 'Veltro | Engineering Analytics for GitHub Teams',
+    template: '%s | Veltro'
+  },
   description:
     'Measure cycle time, unblock reviews, and ship faster. DevPulse turns your GitHub activity into clear signals and AI digests.',
+  keywords: ['GitHub', 'Engineering Analytics', 'Developer Productivity', 'Cycle Time', 'PR Reviews', 'DevPulse', 'Veltro'],
   generator: 'v0.app',
   icons: {
     icon: '/veltro-v-mark.svg',
+    shortcut: '/veltro-v-mark.svg',
+    apple: '/veltro-v-mark.svg',
+  },
+  openGraph: {
+    title: 'Veltro | Engineering Analytics for GitHub Teams',
+    description: 'Measure cycle time, unblock reviews, and ship faster. DevPulse turns your GitHub activity into clear signals and AI digests.',
+    url: 'https://veltro-dev.vercel.app',
+    siteName: 'Veltro',
+    locale: 'en_US',
+    type: 'website',
+    images: [
+      {
+        url: '/images/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Veltro Engineering Analytics Dashboard',
+      }
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Veltro | Engineering Analytics for GitHub Teams',
+    description: 'Measure cycle time, unblock reviews, and ship faster. DevPulse turns your GitHub activity into clear signals and AI digests.',
+    images: ['/images/og-image.png'],
+  },
+  alternates: {
+    canonical: 'https://veltro-dev.vercel.app',
   },
 }
 

@@ -33,7 +33,7 @@ def get_star_string(rating: int) -> str:
 
 
 def get_email_template(title: str, content_html: str) -> str:
-    """Standard Dark Mode Email Wrap"""
+    """Standard Dark Mode Email Wrap matching Dashboard Settings theme"""
     current_year = datetime.now().year
     return f"""
     <!DOCTYPE html>
@@ -46,7 +46,7 @@ def get_email_template(title: str, content_html: str) -> str:
           body {{
             background-color: #09090b;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            color: #e4e4e7;
+            color: #f4f4f5;
             margin: 0;
             padding: 0;
             -webkit-font-smoothing: antialiased;
@@ -60,63 +60,61 @@ def get_email_template(title: str, content_html: str) -> str:
           .container {{
             max-width: 580px;
             margin: 0 auto;
-            background-color: #121215;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
+            background-color: #0f0f12;
+            border: 1px solid #27272a;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
           }}
           .header {{
-            padding: 32px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            text-align: center;
-            background: linear-gradient(to bottom, rgba(168, 85, 247, 0.08), transparent);
+            padding: 24px 32px;
+            border-bottom: 1px solid #27272a;
+            text-align: left;
+            background-color: #0f0f12;
           }}
           .logo-text {{
-            font-size: 26px;
-            font-weight: 800;
-            letter-spacing: -0.05em;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.03em;
             margin: 0;
-            background: linear-gradient(to right, #a855f7, #4b2fcb);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: inline-block;
-            font-family: "Outfit", "Inter", sans-serif;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           }}
           .content {{
             padding: 32px;
             line-height: 1.6;
           }}
           .title {{
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 18px;
+            font-weight: 600;
             color: #ffffff;
             margin-top: 0;
             margin-bottom: 16px;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.01em;
           }}
           .paragraph {{
-            font-size: 15px;
+            font-size: 14px;
             color: #a1a1aa;
             margin-bottom: 24px;
+            line-height: 1.6;
           }}
           .highlight-box {{
-            background-color: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 12px;
-            padding: 20px;
+            background-color: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            padding: 16px 20px;
             margin: 24px 0;
           }}
           .rating-stars {{
             color: #fbbf24;
-            font-size: 22px;
-            margin-bottom: 10px;
+            font-size: 20px;
+            margin-bottom: 8px;
             letter-spacing: 2px;
           }}
           .quote-text {{
             font-style: italic;
-            color: #f4f4f5;
-            font-size: 15px;
+            color: #e4e4e7;
+            font-size: 14px;
             margin: 0;
             line-height: 1.5;
           }}
@@ -127,8 +125,8 @@ def get_email_template(title: str, content_html: str) -> str:
           }}
           .details-table td {{
             padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            font-size: 14px;
+            border-bottom: 1px solid #27272a;
+            font-size: 13px;
             vertical-align: top;
           }}
           .details-table tr:last-child td {{
@@ -136,7 +134,7 @@ def get_email_template(title: str, content_html: str) -> str:
           }}
           .details-label {{
             color: #71717a;
-            width: 30%;
+            width: 35%;
             font-weight: 500;
           }}
           .details-val {{
@@ -145,30 +143,29 @@ def get_email_template(title: str, content_html: str) -> str:
           }}
           .btn-container {{
             margin-top: 32px;
-            text-align: center;
+            text-align: left;
           }}
           .btn {{
             display: inline-block;
-            padding: 12px 28px;
-            background: linear-gradient(to right, #a855f7, #6366f1);
-            color: #ffffff !important;
-            font-size: 14px;
+            padding: 8px 16px;
+            background-color: #f4f4f5;
+            color: #09090b !important;
+            font-size: 12px;
             font-weight: 600;
             text-decoration: none;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(168, 85, 247, 0.25);
-            transition: all 0.2s;
+            transition: background-color 0.2s;
           }}
           .footer {{
-            padding: 24px 32px;
-            background-color: rgba(0, 0, 0, 0.2);
-            border-top: 1px solid rgba(255, 255, 255, 0.04);
-            text-align: center;
-            font-size: 12px;
-            color: #52525b;
+            padding: 20px 32px;
+            background-color: #09090b;
+            border-top: 1px solid #27272a;
+            text-align: left;
+            font-size: 11px;
+            color: #71717a;
           }}
           .footer a {{
-            color: #a855f7;
+            color: #ffffff;
             text-decoration: none;
             font-weight: 500;
           }}
@@ -184,14 +181,15 @@ def get_email_template(title: str, content_html: str) -> str:
               {content_html}
             </div>
             <div class="footer">
-              <p>Built by <a href="mailto:{OWNER_EMAIL}">Milkessa Habtamu Kebu</a>. Shaping engineering team visibility.</p>
-              <p style="margin-top: 8px; color: #3f3f46;">&copy; {current_year} Veltro. All rights reserved.</p>
+              <p style="margin: 0;">Built by <a href="mailto:{OWNER_EMAIL}">Milkessa Habtamu Kebu</a>. Shaping engineering team visibility.</p>
+              <p style="margin: 8px 0 0 0; color: #3f3f46;">&copy; {current_year} Veltro. All rights reserved.</p>
             </div>
           </div>
         </div>
       </body>
     </html>
     """
+
 
 
 @router.post("/contact")

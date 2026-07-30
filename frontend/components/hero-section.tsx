@@ -432,7 +432,7 @@ export function HeroSection() {
       </div>
 
       {/* Header positioned at top of hero container */}
-      <div className="absolute top-0 left-0 right-0 z-20">
+      <div className="absolute top-0 left-0 right-0 z-[45]">
       <Header />
       </div>
       
