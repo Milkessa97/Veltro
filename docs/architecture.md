@@ -16,7 +16,8 @@ The architecture prioritizes **zero-trust security**, **strict data isolation**,
 - **Cascading AI Digest System**: Employing the google-genai SDK to query `gemini-3.5-flash` (with a transparent fallback to `gemini-3.5-flash-lite`) using either system or secure user-provided API keys.
 
 ---
-## 2. System Architecture Diagram
+
+## 2. System Architecture Diagram
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────┐
@@ -259,11 +260,7 @@ ON CONFLICT (github_pr_id) DO UPDATE SET
    - Triggers: On every Pull Request to `main`.
    - Actions: Installs Python dependencies, runs `ruff check app` for linting, runs database migrations against test PostgreSQL service, and executes `pytest app/tests`.
 
-2. **`keep-render-alive.yml` (Render Keep-Alive)**
-   - Triggers: Scheduled cron (`*/10 * * * *` — every 10 minutes).
-   - Actions: Pings the Render backend service via `curl` to prevent the service from spinning down due to inactivity.
-
-3. **`digest.yml` (Weekly Cron Job)**
+2. **`digest.yml` (Weekly Cron Job)**
    - Triggers: Scheduled cron (`0 8 * * 1` — Mondays at 08:00 UTC).
    - Process:
      ```text

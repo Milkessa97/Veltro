@@ -41,3 +41,22 @@ export async function logout(): Promise<void> {
   }
 }
 
+/**
+ * Permanently deletes the user's account by providing confirmation username.
+ */
+export async function deleteAccount(githubLogin: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ github_login: githubLogin }),
+    credentials: "include",
+  })
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Account deletion failed: ${res.statusText}`)
+  }
+}
+

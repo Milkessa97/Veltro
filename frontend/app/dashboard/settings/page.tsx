@@ -12,15 +12,19 @@ import {
   FolderGit2,
   LayoutTemplate,
   Check,
+  AlertTriangle,
+  Trash2,
 } from "lucide-react"
 import { Panel, PanelHeader } from "@/components/dashboard/panel"
 import { getPreferences, updatePreferences, type UserPreferences } from "@/lib/api/preferences"
 import { getRepositories, type Repository } from "@/lib/api/repositories"
+import { getCurrentUser, deleteAccount, type UserInfo } from "@/lib/api/auth"
 import { Switch } from "@/components/ui/switch"
 
 export default function SettingsPage() {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [repositories, setRepositories] = useState<Repository[]>([])
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   // Form states
@@ -28,6 +32,12 @@ export default function SettingsPage() {
   const [defaultDateRange, setDefaultDateRange] = useState<number>(30)
   const [digestPanelExpanded, setDigestPanelExpanded] = useState<boolean>(true)
   const [geminiApiKey, setGeminiApiKey] = useState<string>("")
+
+  // Deletion UI states
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmUsername, setDeleteConfirmUsername] = useState("")
+  const [deleteError, setDeleteError] = useState("")
 
   // UI state
   const [showKey, setShowKey] = useState(false)
@@ -37,13 +47,18 @@ export default function SettingsPage() {
     msg: "",
   })
 
-  // Load preferences and repositories
+  // Load preferences, repositories, and user
   useEffect(() => {
     async function loadData() {
       try {
-        const [prefs, repos] = await Promise.all([getPreferences(), getRepositories()])
+        const [prefs, repos, user] = await Promise.all([
+          getPreferences(),
+          getRepositories(),
+          getCurrentUser(),
+        ])
         setPreferences(prefs)
         setRepositories(repos)
+        setCurrentUser(user)
 
         // Initialize form states
         setDefaultRepoId(prefs.default_repository_id)
@@ -96,6 +111,19 @@ export default function SettingsPage() {
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return
+    setIsDeleting(true)
+    setDeleteError("")
+    try {
+      await deleteAccount(deleteConfirmUsername)
+      window.location.href = "/"
+    } catch (err: any) {
+      setDeleteError(err.message || "Failed to delete account.")
+      setIsDeleting(false)
     }
   }
 
@@ -259,6 +287,78 @@ export default function SettingsPage() {
             </button>
           </div>
         </form>
+      </Panel>
+
+      {/* Danger Zone / Critical Area */}
+      <Panel className="p-6 border border-red-500/20 dark:border-red-500/20 bg-red-500/[0.01]">
+        <PanelHeader icon={AlertTriangle} title="Critical Area" />
+        
+        <div className="mt-6 space-y-4">
+          <div className="border border-red-500/20 rounded-xl p-4 flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white text-left">Delete this account</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md text-left leading-relaxed">
+                  Once you delete your account, there is no going back. All of your repository configurations, synced history, metrics, and weekly AI digests will be permanently wiped.
+                </p>
+              </div>
+              
+              {!showDeleteConfirm && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="py-2 px-4 rounded-lg text-xs font-semibold border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
+                >
+                  Delete Account
+                </button>
+              )}
+            </div>
+
+            {showDeleteConfirm && (
+              <div className="border-t border-red-500/10 pt-4 space-y-3">
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium text-left">
+                  To confirm deletion, please enter your GitHub username <span className="font-mono bg-red-500/10 px-1 py-0.5 rounded text-red-500">{currentUser?.github_login}</span>:
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 max-w-md">
+                  <input
+                    type="text"
+                    value={deleteConfirmUsername}
+                    onChange={(e) => setDeleteConfirmUsername(e.target.value)}
+                    placeholder={currentUser?.github_login}
+                    className="flex-1 bg-transparent border border-red-500/30 rounded-lg py-2 px-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-red-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={isDeleting || deleteConfirmUsername !== currentUser?.github_login}
+                      onClick={handleDeleteAccount}
+                      className="py-2 px-4 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                    >
+                      {isDeleting ? "Deleting..." : <>
+                        <Trash2 className="w-3.5 h-3.5" /> Confirm Delete
+                      </>}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeleting}
+                      onClick={() => {
+                        setShowDeleteConfirm(false)
+                        setDeleteConfirmUsername("")
+                        setDeleteError("")
+                      }}
+                      className="py-2 px-3 rounded-lg text-xs font-semibold border border-zinc-200 text-gray-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-900 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                {deleteError && (
+                  <p className="text-xs text-red-500 font-semibold text-left mt-1">{deleteError}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </Panel>
     </div>
   )

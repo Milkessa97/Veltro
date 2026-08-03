@@ -1,6 +1,5 @@
-"use client"
-
 import { Mail, Github, Linkedin } from "lucide-react"
+import Link from "next/link"
 
 export function FooterSection() {
   return (
@@ -12,13 +11,13 @@ export function FooterSection() {
         </div>
         <p className="text-foreground/90 text-sm font-medium leading-[18px] text-left">Engineering analytics for teams</p>
         <div className="flex justify-start items-start gap-3">
-          <a href="https://github.com/Milkessa97" aria-label="GitHub" className="w-4 h-4 flex items-center justify-center">
+          <a href="https://github.com/Milkessa97" aria-label="GitHub" target="_blank" rel="noopener noreferrer" className="w-4 h-4 flex items-center justify-center">
             <Github className="w-full h-full text-muted-foreground" />
           </a>
-          <a href="https://www.linkedin.com/in/milkessa-habtamu-831bb432b/" aria-label="LinkedIn" className="w-4 h-4 flex items-center justify-center">
+          <a href="https://www.linkedin.com/in/milkessa-habtamu-831bb432b/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="w-4 h-4 flex items-center justify-center">
             <Linkedin className="w-full h-full text-muted-foreground" />
           </a>
-          <a href="mailto:[milkessahabtamukebu@gmail.com]" aria-label="Mail" className="w-4 h-4 flex items-center justify-center">
+          <a href="mailto:milkessahabtamukebu@gmail.com" aria-label="Mail" className="w-4 h-4 flex items-center justify-center">
             <Mail className="w-full h-full text-muted-foreground" />
           </a>
         </div>
@@ -42,22 +41,19 @@ export function FooterSection() {
             <a href="#" className="text-foreground text-sm font-normal leading-5 hover:underline">
               About us
             </a>
-            <a href="#" className="text-foreground text-sm font-normal leading-5 hover:underline">
-              Developers
-            </a>
+            <Link href="/developer" className="text-foreground text-sm font-normal leading-5 hover:underline">
+              Developer
+            </Link>
           </div>
         </div>
         <div className="flex flex-col justify-start items-start gap-3">
           <h3 className="text-muted-foreground text-sm font-medium leading-5">Resources</h3>
           <div className="flex flex-col justify-center items-start gap-2">
-            <a href="#" className="text-foreground text-sm font-normal leading-5 hover:underline">
+            <a href="/terms" className="text-foreground text-sm font-normal leading-5 hover:underline">
               Terms of use
             </a>
-            <a href="#" className="text-foreground text-sm font-normal leading-5 hover:underline">
+            <a href="/docs" className="text-foreground text-sm font-normal leading-5 hover:underline">
               Documentation
-            </a>
-            <a href="#" className="text-foreground text-sm font-normal leading-5 hover:underline">
-              Support
             </a>
           </div>
         </div>

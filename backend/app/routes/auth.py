@@ -12,6 +12,7 @@ from app.db.session import get_db, SessionLocal
 from app.models.users import User
 from app.models.user_preferences import UserPreferences
 from app.models.token_blocklist import TokenBlocklist
+from app.schemas.auth import DeleteAccountRequest
 from app.services.encryption import encrypt_token
 from app.services.repositories import sync_repository_data, get_user_repositories
 from app.services.auth import (
@@ -403,3 +404,61 @@ def me(
         "last_login_at": current_user.last_login_at,
         "is_onboarded": is_onboarded
     }
+
+
+@router.delete("/me", status_code=status.HTTP_200_OK)
+def delete_account(
+    request: DeleteAccountRequest,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    access_token: Optional[str] = Cookie(None),
+    refresh_token: Optional[str] = Cookie(None),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings)
+):
+    """
+    Permanently deletes the currently authenticated user's account and all associated
+    data (preferences, repos, digests) via cascade, provided they verify by typing
+    their github_login. Revokes active JWT credentials.
+    """
+    if request.github_login.strip() != current_user.github_login:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirmation username does not match."
+        )
+
+    secure_cookie = settings.ENVIRONMENT != "development"
+
+    # 1. Add current session tokens to blocklist
+    if access_token:
+        payload = verify_jwt_token(access_token, expected_type="access")
+        if payload and payload.get("jti"):
+            db.add(TokenBlocklist(jti=payload["jti"]))
+
+    if refresh_token:
+        payload = verify_jwt_token(refresh_token, expected_type="refresh")
+        if payload and payload.get("jti"):
+            db.add(TokenBlocklist(jti=payload["jti"]))
+
+    # 2. Delete user row (cascades handle related tables)
+    db.delete(current_user)
+    db.commit()
+
+    # 3. Clear cookies in client response
+    response.delete_cookie(
+        key="refresh_token",
+        path=f"{settings.COOKIE_PATH_PREFIX}/auth",
+        secure=secure_cookie,
+        httponly=True,
+        samesite="strict"
+    )
+
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        secure=secure_cookie,
+        httponly=True,
+        samesite="lax"
+    )
+
+    return {"message": "Account successfully deleted"}

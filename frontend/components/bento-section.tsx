@@ -101,7 +101,7 @@ export function BentoSection() {
     },
     {
       title: "One-click GitHub sync",
-      description: "Connect a repo and DevPulse keeps metrics up to date.",
+      description: "Connect a repo and Veltro keeps metrics up to date.",
       Component: GithubSyncIllustration,
       className: "md:col-span-2",
       isWide: true,

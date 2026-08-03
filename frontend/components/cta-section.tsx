@@ -4,7 +4,7 @@ import Link from "next/link"
 export function CTASection() {
   return (
     <section className="w-full pt-20 md:pt-60 lg:pt-60 pb-10 md:pb-20 px-5 relative flex flex-col justify-center items-center overflow-visible">
-      <div className="absolute inset-0 top-[-90px]">
+      <div className="absolute inset-0 top-0">
         <svg
           className="w-full h-full"
           viewBox="0 0 1388 825"
@@ -12,18 +12,7 @@ export function CTASection() {
           xmlns="http://www.w3.org/2000/svg"
           preserveAspectRatio="xMidYMid slice"
         >
-          <mask
-            id="mask0_182_1049"
-            style={{ maskType: "alpha" }}
-            maskUnits="userSpaceOnUse"
-            x="269"
-            y="27"
-            width="850"
-            height="493"
-          >
-            <rect x="269.215" y="27.4062" width="849.57" height="492.311" fill="url(#paint0_linear_182_1049)" />
-          </mask>
-          <g mask="url(#mask0_182_1049)">
+          <g>
             <g filter="url(#filter0_f_182_1049)">
               <ellipse
                 cx="694"
@@ -70,7 +59,7 @@ export function CTASection() {
               cy="0"
               r="1"
               gradientUnits="userSpaceOnUse"
-              gradientTransform="translate(683.482 245.884) rotate(-3.78676) scale(469.009 248.4)"
+              gradientTransform="translate(694 -93.0414) scale(670.109 354.908)"
             >
               <stop offset="0.1294" stopColor="hsl(var(--primary-dark))" />
               <stop offset="0.2347" stopColor="hsl(var(--primary))" />
@@ -95,8 +84,9 @@ export function CTASection() {
               y2="261.866"
               gradientUnits="userSpaceOnUse"
             >
-              <stop stopColor="hsl(var(--background))" />
-              <stop offset="1" stopColor="hsl(var(--background))" />
+              <stop stopColor="hsl(var(--background))" stopOpacity="0.88" />
+              <stop offset="0.7" stopColor="hsl(var(--background))" stopOpacity="0.85" />
+              <stop offset="1" stopColor="hsl(var(--background))" stopOpacity="1" />
             </linearGradient>
           </defs>
         </svg>

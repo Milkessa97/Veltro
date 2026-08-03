@@ -34,6 +34,7 @@ export default function LandingPage() {
       // Skip the loading screen entirely; show page immediately
       setLoading(false)
       setPageReady(true)
+      window.scrollTo(0, 0)
       return
     }
 
@@ -117,7 +118,7 @@ export default function LandingPage() {
           <AnimatedSection id="contact-section" className="relative z-20 max-w-[1320px] mx-auto mt-8 md:mt-16" delay={0.2}>
             <ContactSection />
           </AnimatedSection>
-          <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-8 md:mt-16" delay={0.2}>
+          <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-0" delay={0.2}>
             <CTASection />
           </AnimatedSection>
           <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-8 md:mt-16" delay={0.2}>
