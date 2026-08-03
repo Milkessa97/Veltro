@@ -4,8 +4,23 @@ import { useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { SendIcon, CheckIcon } from "./LandingPage/icons"
-import { Github, Twitter, Star, ArrowRight, MessageSquareHeart, Sparkles, User, Loader2 } from "lucide-react"
+import { Github, Mail, Star, MessageSquareHeart, Sparkles, User, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+// Telegram Icon SVG Component
+function TelegramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M11.944 0C5.344 0 0 5.344 0 11.944c0 6.6 5.344 11.944 11.944 11.944 6.6 0 11.944-5.344 11.944-11.944C23.888 5.344 18.544 0 11.944 0zm5.836 8.358l-1.956 9.222c-.148.667-.547.83-.11.83.003 0 .007 0 .01-.002.32-.095.736-.37 1.077-.696 1.036-.967 1.83-2.072 2.37-3.298.54-1.226.79-2.527.75-3.834a3.1 3.1 0 0 0-.206-1.127c-.12-.295-.316-.548-.564-.73-.248-.182-.544-.282-.85-.292-.513-.008-1.023.1-1.498.318-1.745.8-3.486 1.61-5.23 2.413l-5.632 2.61c-.51.246-.66.577-.163.784.498.207 1.343.435 2.015.65.25.08.528.082.78.005a2.536 2.536 0 0 0 .546-.226c.71-.383 1.41-.78 2.112-1.176l5.445-3.4c.05-.03.116-.016.148.032.032.048.02.115-.027.147l-4.664 4.2c-.22.2-.423.415-.61.642a4.67 4.67 0 0 1-.773.742l-.128.096c-.347.26-.704.507-1.072.74l-.1.062c-.44.275-.812.51-1.5.5-.66-.01-1.3-.263-1.94-.5l-.06-.023c-.76-.282-1.503-.6-2.24-.93a1.442 1.442 0 0 1-.952-1.134 1.412 1.412 0 0 1 .632-1.258l5.63-2.61c3.568-1.637 7.135-3.275 10.703-4.912.44-.2.915-.226 1.36-.075.443.15.823.447 1.08.843z" />
+    </svg>
+  )
+}
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 
@@ -440,7 +455,7 @@ export function ContactSection() {
   return (
     <section id="contact-section" className="w-full px-5 pb-24 md:pb-36 relative isolate">
       {/* Background glow at the bottom, fading as it goes upward to blend with CTA Section */}
-      <div className="absolute inset-x-0 bottom-[1.65rem] h-[300px] pointer-events-none -z-10 overflow-hidden select-none">
+      <div className="absolute inset-x-0 bottom-0 h-[300px] pointer-events-none -z-10 overflow-hidden select-none">
         {/* Glow blob matching CTA styling */}
         <div className="absolute bottom-[-20px] left-1/2 -translate-x-1/2 w-[300px] md:w-[600px] h-[180px] rounded-full bg-primary/10 blur-[80px]" />
         {/* Fading dark gradient mask going upwards */}
@@ -468,13 +483,20 @@ export function ContactSection() {
             GitHub
           </a>
           <a
-            href="https://x.com"
+            href="https://t.me/milkessa04"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
           >
-            <Twitter className="h-3.5 w-3.5" />
-            Twitter / X
+            <TelegramIcon className="h-3.5 w-3.5" />
+            Telegram
+          </a>
+          <a
+            href="mailto:milkessahabtamukebu@gmail.com"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            Email
           </a>
         </div>
       </div>

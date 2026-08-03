@@ -14,9 +14,8 @@ export const metadata: Metadata = {
     template: '%s | Veltro'
   },
   description:
-    'Measure cycle time, unblock reviews, and ship faster. DevPulse turns your GitHub activity into clear signals and AI digests.',
-  keywords: ['GitHub', 'Engineering Analytics', 'Developer Productivity', 'Cycle Time', 'PR Reviews', 'DevPulse', 'Veltro'],
-  generator: 'v0.app',
+    'Measure cycle time, unblock reviews, and ship faster. Veltro turns your GitHub activity into clear signals and AI digests.',
+  keywords: ['GitHub', 'Engineering Analytics', 'Developer Productivity', 'Cycle Time', 'PR Reviews', 'Veltro'],
   icons: {
     icon: '/veltro-v-mark.svg',
     shortcut: '/veltro-v-mark.svg',
@@ -24,7 +23,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Veltro | Engineering Analytics for GitHub Teams',
-    description: 'Measure cycle time, unblock reviews, and ship faster. DevPulse turns your GitHub activity into clear signals and AI digests.',
+    description: 'Measure cycle time, unblock reviews, and ship faster. Veltro turns your GitHub activity into clear signals and AI digests.',
     url: 'https://veltro-dev.vercel.app',
     siteName: 'Veltro',
     locale: 'en_US',
@@ -41,7 +40,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Veltro | Engineering Analytics for GitHub Teams',
-    description: 'Measure cycle time, unblock reviews, and ship faster. DevPulse turns your GitHub activity into clear signals and AI digests.',
+    description: 'Measure cycle time, unblock reviews, and ship faster. Veltro turns your GitHub activity into clear signals and AI digests.',
     images: ['/images/og-image.png'],
   },
   alternates: {
