@@ -58,8 +58,8 @@ export default function RootLayout({
     <html lang="en" className={`${outfit.variable} ${_geistMono.variable}`} suppressHydrationWarning>
       <body className="antialiased">
         {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-        {process.env.NODE_ENV === 'production' && <SpeedInsights />}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
