@@ -23,6 +23,7 @@ import {
   getDigestHistory,
   type DigestResponse,
 } from "@/lib/api/digest"
+import { useAnalytics } from "@/hooks/use-analytics"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -202,6 +203,7 @@ export default function AiDigests() {
   const [showHistory, setShowHistory] = useState(false)
 
   const repoId = activeRepo?.id ?? null
+  const analytics = useAnalytics()
 
   const loadLatest = useCallback(async () => {
     if (!repoId) return
@@ -210,11 +212,13 @@ export default function AiDigests() {
     try {
       const digest = await getWeeklyDigest(repoId)
       setLatestDigest(digest)
+      analytics.digestGenerated({ repo_id: repoId })
     } catch (err: any) {
       setError(err.message || "Failed to load digest.")
     } finally {
       setIsLoadingLatest(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoId])
 
   const loadHistory = useCallback(async () => {
@@ -237,6 +241,7 @@ export default function AiDigests() {
     setError(null)
     try {
       const fresh = await regenerateDigest(repoId)
+      analytics.digestRegenerated({ repo_id: repoId, was_stale: latestDigest?.is_stale ?? false })
       setLatestDigest(fresh)
     } catch (err: any) {
       setError(err.message || "Regeneration failed.")
@@ -324,7 +329,11 @@ export default function AiDigests() {
         <div>
           <button
             type="button"
-            onClick={() => setShowHistory((v) => !v)}
+            onClick={() => {
+            const next = !showHistory
+            setShowHistory(next)
+            if (next && repoId) analytics.digestHistoryViewed({ repo_id: repoId })
+          }}
             className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           >
             <History className="w-3.5 h-3.5" />
