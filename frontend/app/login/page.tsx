@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { GithubIcon } from "@/components/LandingPage/icons"
+import { useAnalytics } from "@/hooks/use-analytics"
 
 // Use a relative /api path so the login navigates through the Next.js rewrite
 // proxy. This keeps the entire OAuth flow on the frontend domain, ensuring
@@ -128,8 +129,10 @@ function StoryPanel() {
 function LoginPanel() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
+  const analytics = useAnalytics()
 
   const handleLogin = () => {
+    analytics.loginInitiated({ method: "github_oauth" })
     setLoading(true)
     window.location.href = LOGIN_URL
   }

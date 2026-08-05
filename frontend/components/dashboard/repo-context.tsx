@@ -11,6 +11,7 @@ import {
 import { getRepositories, syncRepo, type Repository } from "@/lib/api/repositories"
 import { getPreferences, updatePreferences } from "@/lib/api/preferences"
 import { toast } from "@/hooks/use-toast"
+import { useAnalytics } from "@/hooks/use-analytics"
 
 export type DateRange = "7d" | "30d" | "90d"
 
@@ -40,6 +41,7 @@ export function RepoProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const analytics = useAnalytics()
 
   // Bootstrap: fetch repos + preferences in parallel
   useEffect(() => {
@@ -121,15 +123,27 @@ export function RepoProvider({ children }: { children: ReactNode }) {
   const setActiveRepoId = useCallback(
     (id: string) => {
       setActiveRepoIdState(id)
+      // Track repository switch
+      const repo = repositories.find((r) => r.id === id)
+      if (repo) {
+        analytics.repositorySelected({
+          repo_id: repo.id,
+          repo_name: repo.full_name,
+          is_private: repo.is_private,
+        })
+      }
       // Persist silently; don't block the UI
       updatePreferences({ default_repository_id: id }).catch(() => {})
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [repositories]
   )
 
   const setDateRange = useCallback((range: DateRange) => {
     setDateRangeState(range)
+    analytics.dateRangeChanged({ range, days: DATE_RANGE_DAYS[range] })
     updatePreferences({ default_date_range_days: DATE_RANGE_DAYS[range] }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const triggerSync = useCallback(async () => {
@@ -141,6 +155,7 @@ export function RepoProvider({ children }: { children: ReactNode }) {
       setRepositories((prev) =>
         prev.map((r) => (r.id === updated.id ? updated : r))
       )
+      analytics.repositorySynced({ repo_name: updated.full_name, trigger: "manual" })
       toast({
         title: "Sync Completed",
         description: `Successfully updated metrics for ${updated.full_name}.`,

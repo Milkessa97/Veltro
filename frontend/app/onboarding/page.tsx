@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { CalendarDays, LayoutDashboard, Check, ArrowRight, Sparkles, Loader2, FolderGit2, RefreshCw } from "lucide-react"
 import { updatePreferences } from "@/lib/api/preferences"
 import { getRepositories, type Repository } from "@/lib/api/repositories"
+import { useAnalytics } from "@/hooks/use-analytics"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,6 +110,7 @@ function SelectionCard({
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const analytics = useAnalytics()
 
   const [step, setStep]                       = useState<Step>("repo")
   const [repositories, setRepositories]       = useState<Repository[]>([])
@@ -161,6 +163,7 @@ export default function OnboardingPage() {
   }
 
   const handleRepoNext = () => {
+    analytics.onboardingStepCompleted({ step: "repo", step_index: 0 })
     setLoadingMessage("Configuring default repository and initializing backend metadata sync...")
     setTimeout(() => {
       setLoadingMessage(null)
@@ -169,6 +172,7 @@ export default function OnboardingPage() {
   }
 
   const handleDateRangeNext = () => {
+    analytics.onboardingStepCompleted({ step: "date_range", step_index: 1 })
     setLoadingMessage("Applying rolling analysis period to aggregate team commits and reviews...")
     setTimeout(() => {
       setLoadingMessage(null)
@@ -186,6 +190,12 @@ export default function OnboardingPage() {
         default_date_range_days: dateRange,
         digest_panel_expanded: digestExpanded,
         is_onboarded: true,
+      })
+      analytics.onboardingStepCompleted({ step: "digest", step_index: 2 })
+      analytics.onboardingCompleted({
+        date_range_days: dateRange,
+        digest_expanded: digestExpanded,
+        repo_count: repositories.length,
       })
       setTimeout(() => {
         router.push("/dashboard")

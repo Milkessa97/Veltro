@@ -30,6 +30,13 @@ export default function LandingPage() {
       // sessionStorage unavailable (private mode, etc.) — treat as first load
     }
 
+    // Fire a silent ping to wake the Render backend on first visit this session.
+    // We use /api/auth/me (proxied → backend); a 401 is fine — we just need
+    // the dyno to spin up before the user clicks Login.
+    if (!alreadyLoaded) {
+      fetch("/api/", { credentials: "include" }).catch(() => {})
+    }
+
     if (alreadyLoaded) {
       // Skip the loading screen entirely; show page immediately
       setLoading(false)
@@ -49,6 +56,7 @@ export default function LandingPage() {
       cancelAnimationFrame(raf2)
     }
   }, [])
+
 
   // Persist the "already loaded" flag once the loading screen finishes
   const handleLoadingComplete = () => {
